@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
+          go-version-file: apps/backend/go.mod
+          cache-dependency-path: apps/backend/go.sum
 
       # gofmt -l mencetak berkas yang belum rapi dan tetap keluar dengan status
       # 0, jadi keluarannya yang harus diperiksa — bukan exit code-nya.
@@ -47,11 +47,18 @@ jobs:
       - name: Build
         run: go build ./...
 
-  frontend:
+      # Spesifikasi API lahir dari anotasi pada handler. Bila anotasinya berubah
+      # tetapi berkas hasil generate tidak ikut di-commit, kontrak yang dipakai
+      # frontend diam-diam menggambarkan API versi lama.
+      - name: Spesifikasi API selaras dengan anotasi
+        run: |
+          go run github.com/swaggo/swag/cmd/swag@v1.16.4 init \
+            -g cmd/api/main.go -o docs --parseDependency --parseInternal
+          git diff --exit-code docs/ \
+            || { echo "Jalankan 'bun run swagger' lalu commit hasilnya."; exit 1; }
+
+  contract:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -59,30 +66,56 @@ jobs:
         with:
           bun-version: "1.4.0"
 
-      - name: Pasang dependency
-        run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
+
+      # Penjaga sesungguhnya dari paket kontrak: tipe TypeScript yang ter-commit
+      # harus masih sesuai dengan spesifikasi. Tanpa langkah ini, tipe itu hanya
+      # menyalin keadaan pada suatu saat, bukan menjaganya tetap sama.
+      - name: Kontrak selaras dengan spesifikasi
+        run: bun run contract:check
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+
+      # Install dijalankan dari akar: dependency-nya milik workspace, dan
+      # frontend memakai paket kontrak lewat tautan workspace.
+      - run: bun install --frozen-lockfile
 
       - name: Lint
-        run: bun run lint
+        run: bun run --filter @verifield/frontend lint
 
       - name: Periksa tipe
-        run: bun run typecheck
+        run: bun run --filter @verifield/frontend typecheck
 
       - name: Test
-        run: bun test
+        run: bun run --filter @verifield/frontend test
 
       - name: Build
-        run: bun run build
+        run: bun run --filter @verifield/frontend build
 
   images:
-    # Image hanya dibangun setelah kedua sisi lolos — tidak ada gunanya
-    # mengemas kode yang belum tentu benar.
-    needs: [backend, frontend]
+    # Image hanya dibangun setelah semuanya lolos — tidak ada gunanya mengemas
+    # kode yang belum tentu benar.
+    needs: [backend, contract, frontend]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        component: [backend, frontend]
+        include:
+          - component: backend
+            context: ./apps/backend
+            dockerfile: ./apps/backend/Dockerfile
+          # Konteks frontend adalah akar repo: lockfile dan paket kontrak berada
+          # di luar apps/frontend, dan keduanya dibutuhkan saat install.
+          - component: frontend
+            context: .
+            dockerfile: ./apps/frontend/Dockerfile
     steps:
       - uses: actions/checkout@v4
 
@@ -93,7 +126,8 @@ jobs:
       - name: Build image ${{ matrix.component }}
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.component }}
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: false
           tags: verifield-${{ matrix.component }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.component }}

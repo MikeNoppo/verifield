@@ -1,0 +1,16 @@
+{
+  "name": "@verifield/backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "go run ./cmd/api",
+    "build": "go build -o bin/api ./cmd/api",
+    "test": "go test ./...",
+    "lint": "go vet ./...",
+    "typecheck": "go build ./...",
+    "fmt": "gofmt -l .",
+    "migrate": "go run ./cmd/migrate up",
+    "seed": "go run ./cmd/seeder",
+    "swagger": "go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -g cmd/api/main.go -o docs --parseDependency --parseInternal"
+  }
+}

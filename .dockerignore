@@ -1,0 +1,21 @@
+# Konteks build frontend adalah akar repo, jadi berkas ini yang berlaku untuknya.
+# Backend punya .dockerignore sendiri karena konteksnya apps/backend.
+.git
+.github
+node_modules
+**/node_modules
+**/.next
+**/bin
+**/tmp
+.env
+.env.local
+**/.env
+**/.env.local
+*.exe
+*.test
+*.out
+coverage.*
+**/*.tsbuildinfo
+**/next-env.d.ts
+docs
+deploy

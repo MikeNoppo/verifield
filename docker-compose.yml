@@ -1,8 +1,11 @@
-# Seluruh stack Verifield dalam satu perintah:
+# Seluruh stack Verifield:
 #
-#   docker compose up --build
+#   bun run stack:up      seluruh tumpukan, lalu buka http://localhost:3000
+#   bun run db:up         database saja, untuk pengembangan dengan hot reload
 #
-# Lalu buka http://localhost:3000
+# Database berada di luar profil `full` dengan sengaja: alur pengembangan
+# sehari-hari menjalankan Postgres di Docker dan kedua aplikasi langsung di
+# mesin, supaya hot reload tetap bekerja.
 #
 # Urutannya dirantai lewat kondisi kesehatan, bukan lewat jeda waktu: migrasi
 # menunggu database benar-benar siap menerima query, seeder menunggu migrasi
@@ -42,8 +45,9 @@ services:
   # Menerapkan migrasi lalu berhenti. Migrasi ter-embed di dalam binary, jadi
   # container ini tidak perlu membawa folder migrations/ maupun Atlas.
   migrate:
+    profiles: [full]
     build:
-      context: ./backend
+      context: ./apps/backend
     environment: *db-env
     entrypoint: ["migrate", "up"]
     depends_on:
@@ -53,8 +57,9 @@ services:
 
   # Mengisi data contoh lalu berhenti. Idempoten, jadi aman dijalankan ulang.
   seed:
+    profiles: [full]
     build:
-      context: ./backend
+      context: ./apps/backend
     environment:
       <<: *db-env
       SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrator}
@@ -67,8 +72,9 @@ services:
     restart: "no"
 
   backend:
+    profiles: [full]
     build:
-      context: ./backend
+      context: ./apps/backend
     environment:
       <<: *db-env
       APP_ENV: ${APP_ENV:-development}
@@ -87,8 +93,12 @@ services:
     stop_grace_period: 30s
 
   frontend:
+    profiles: [full]
     build:
-      context: ./frontend
+      # Konteksnya akar repo: lockfile dan paket kontrak berada di luar
+      # apps/frontend, dan keduanya dibutuhkan saat install.
+      context: .
+      dockerfile: apps/frontend/Dockerfile
       args:
         # Nilai ini terpanggang saat build karena dibaca dari browser, bukan
         # dari dalam container.

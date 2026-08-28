@@ -1,0 +1,1175 @@
+basePath: /api/v1
+definitions:
+  internal_modules_reference.DemoActorResponse:
+    properties:
+      company_id:
+        type: string
+      company_name:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        enum:
+        - admin
+        - client
+        - inspector
+        - cs
+        type: string
+    type: object
+  internal_modules_reference.InspectionTypeResponse:
+    properties:
+      code:
+        example: bulk_cargo
+        type: string
+      id:
+        type: string
+      name:
+        example: Inspeksi Kargo Curah
+        type: string
+    type: object
+  internal_modules_reference.InspectorResponse:
+    properties:
+      active_jobs:
+        type: integer
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  verifield-be_internal_common_apperror.FieldError:
+    properties:
+      field:
+        example: email
+        type: string
+      message:
+        example: email wajib diisi
+        type: string
+    type: object
+  verifield-be_internal_common_response.Envelope:
+    properties:
+      code:
+        type: string
+      data: {}
+      errors:
+        items:
+          $ref: '#/definitions/verifield-be_internal_common_apperror.FieldError'
+        type: array
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/verifield-be_internal_common_response.Meta'
+      success:
+        type: boolean
+    type: object
+  verifield-be_internal_common_response.Meta:
+    properties:
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total:
+        example: 42
+        type: integer
+      total_page:
+        example: 5
+        type: integer
+    type: object
+  verifield-be_internal_modules_joborder_dto.AssignInspectorDTO:
+    properties:
+      expected_version:
+        example: 1
+        minimum: 1
+        type: integer
+      inspector_id:
+        type: string
+    required:
+    - expected_version
+    - inspector_id
+    type: object
+  verifield-be_internal_modules_joborder_dto.CancelJobOrderDTO:
+    properties:
+      expected_version:
+        description: |-
+          Kosong berarti pemanggil tidak peduli pada versi. Diisi oleh koordinator
+          yang bertindak dari layar yang mungkin sudah basi.
+        minimum: 1
+        type: integer
+      reason:
+        example: Jadwal pengapalan dimajukan
+        maxLength: 500
+        minLength: 3
+        type: string
+    required:
+    - reason
+    type: object
+  verifield-be_internal_modules_joborder_dto.CancelResult:
+    properties:
+      fee:
+        enum:
+        - none
+        - travel
+        - visit
+        - coordinator
+        example: travel
+        type: string
+      message:
+        type: string
+      order:
+        $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+      status:
+        enum:
+        - cancelled
+        - pending_approval
+        example: cancelled
+        type: string
+    type: object
+  verifield-be_internal_modules_joborder_dto.CorrectStatusDTO:
+    properties:
+      expected_version:
+        minimum: 1
+        type: integer
+      reason:
+        example: Inspektor salah menekan Selesai padahal baru tiba
+        maxLength: 500
+        minLength: 3
+        type: string
+      to_status:
+        enum:
+        - requested
+        - assigned
+        - on_the_way
+        - on_site
+        - in_progress
+        - completed
+        - failed
+        - cancelled
+        type: string
+    required:
+    - expected_version
+    - reason
+    - to_status
+    type: object
+  verifield-be_internal_modules_joborder_dto.CreateJobOrderDTO:
+    properties:
+      city:
+        example: Jakarta
+        maxLength: 80
+        minLength: 2
+        type: string
+      inspection_type_id:
+        example: 6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11
+        type: string
+      location_address:
+        example: Jl. Palmerah No. 1, Jakarta Utara
+        minLength: 3
+        type: string
+      location_name:
+        example: Dermaga 3, Pelabuhan Tanjung Priok
+        maxLength: 160
+        minLength: 3
+        type: string
+      object_description:
+        example: Batu bara 5.000 MT
+        maxLength: 255
+        minLength: 3
+        type: string
+      scheduled_end_at:
+        type: string
+      scheduled_start_at:
+        type: string
+    required:
+    - city
+    - inspection_type_id
+    - location_address
+    - location_name
+    - object_description
+    - scheduled_end_at
+    - scheduled_start_at
+    type: object
+  verifield-be_internal_modules_joborder_dto.DecideCancellationDTO:
+    properties:
+      decision:
+        enum:
+        - approve
+        - reject
+        example: approve
+        type: string
+      note:
+        maxLength: 500
+        type: string
+    required:
+    - decision
+    type: object
+  verifield-be_internal_modules_joborder_dto.JobOrderResponse:
+    properties:
+      cancellation_requested:
+        type: boolean
+      city:
+        type: string
+      company_id:
+        type: string
+      company_name:
+        example: PT Karya Bahari Ekspor
+        type: string
+      created_at:
+        type: string
+      created_by_name:
+        type: string
+      current_status:
+        enum:
+        - requested
+        - assigned
+        - on_the_way
+        - on_site
+        - in_progress
+        - completed
+        - failed
+        - cancelled
+        example: in_progress
+        type: string
+      events:
+        description: Hanya terisi pada endpoint detail; daftar tidak membawa riwayat.
+        items:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobStatusEventResponse'
+        type: array
+      exit_status:
+        description: |-
+          Tahap terjauh yang sempat dicapai sebelum order berakhir. Untuk order yang
+          masih berjalan nilainya sama dengan current_status; untuk yang dibatalkan
+          atau gagal, inilah yang menjawab "sejauh mana sempat berjalan".
+
+          Dihitung server karena daftar order sengaja tidak membawa riwayat, dan
+          justru di daftar itulah pertanyaan tersebut paling sering muncul.
+        enum:
+        - requested
+        - assigned
+        - on_the_way
+        - on_site
+        - in_progress
+        - completed
+        - failed
+        - cancelled
+        type: string
+      has_open_alert:
+        type: boolean
+      id:
+        type: string
+      inspection_type_id:
+        type: string
+      inspection_type_name:
+        example: Inspeksi Kargo Curah
+        type: string
+      inspector_id:
+        type: string
+      inspector_name:
+        type: string
+      location_address:
+        type: string
+      location_name:
+        type: string
+      object_description:
+        type: string
+      pending_cancellation:
+        allOf:
+        - $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.PendingCancellation'
+        description: |-
+          Hanya terisi pada endpoint detail. Koordinator butuh id-nya untuk
+          memutuskan, dan alasannya untuk memutuskan dengan benar.
+      reference_number:
+        example: JO-2026-0001
+        type: string
+      scheduled_end_at:
+        type: string
+      scheduled_start_at:
+        type: string
+      seq:
+        description: |-
+          Seq event terakhir milik order ini. Klien memakainya untuk mengabaikan
+          pesan real-time yang lebih tua daripada yang sudah diterapkan, sehingga
+          jaminan urutan berlaku di dua sisi — bukan hanya di server.
+        type: integer
+      status_changed_at:
+        type: string
+      updated_at:
+        type: string
+      version:
+        description: Dikirim balik saat mutasi sebagai expected_version (keputusan
+          B-09).
+        type: integer
+    type: object
+  verifield-be_internal_modules_joborder_dto.JobStatusEventResponse:
+    properties:
+      accepted:
+        description: |-
+          Keputusan B-07: event yang ditolak tetap tersimpan. Hanya event
+          Accepted=true yang pernah mengubah status.
+        type: boolean
+      actor_id:
+        type: string
+      actor_name:
+        example: Rina Amelia
+        type: string
+      actor_role:
+        enum:
+        - admin
+        - client
+        - inspector
+        - cs
+        example: inspector
+        type: string
+      client_event_id:
+        type: string
+      created_at:
+        type: string
+      from_status:
+        enum:
+        - requested
+        - assigned
+        - on_the_way
+        - on_site
+        - in_progress
+        - completed
+        - failed
+        - cancelled
+        example: on_site
+        type: string
+      id:
+        example: 6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11
+        type: string
+      is_correction:
+        type: boolean
+      job_order_id:
+        type: string
+      occurred_at:
+        description: |-
+          Keputusan B-02: waktu kejadian di lapangan dan waktu terima server dicatat
+          terpisah. Timeline diurutkan dengan OccurredAt; status terkini ditentukan
+          dengan Seq.
+        type: string
+      occurred_at_adjusted:
+        type: boolean
+      reason:
+        type: string
+      received_at:
+        type: string
+      rejection_reason:
+        enum:
+        - late_after_final
+        - out_of_order
+        - pending_approval
+        - cancellation_rejected
+        example: late_after_final
+        type: string
+      seq:
+        example: 42
+        type: integer
+      to_status:
+        enum:
+        - requested
+        - assigned
+        - on_the_way
+        - on_site
+        - in_progress
+        - completed
+        - failed
+        - cancelled
+        example: in_progress
+        type: string
+    type: object
+  verifield-be_internal_modules_joborder_dto.PendingCancellation:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      reason:
+        type: string
+      requested_by_name:
+        type: string
+    type: object
+  verifield-be_internal_modules_joborder_dto.SubmitStatusEventDTO:
+    properties:
+      client_event_id:
+        description: |-
+          Keputusan B-03: penanda unik dibuat di perangkat sebelum kiriman pertama,
+          sehingga tombol yang ditekan berulang kali saat sinyal lemah hanya
+          menghasilkan satu baris riwayat.
+        example: 6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11
+        maxLength: 64
+        minLength: 8
+        type: string
+      occurred_at:
+        description: |-
+          Keputusan B-02: waktu saat tombol ditekan di lapangan, bukan saat
+          laporan berhasil terkirim. Boleh kosong bila perangkat sedang online.
+        type: string
+      reason:
+        example: Kargo belum tiba di dermaga
+        maxLength: 500
+        type: string
+      to_status:
+        enum:
+        - on_the_way
+        - on_site
+        - in_progress
+        - completed
+        - failed
+        example: on_site
+        type: string
+    required:
+    - client_event_id
+    - to_status
+    type: object
+  verifield-be_internal_modules_joborder_dto.SubmitStatusEventResult:
+    properties:
+      accepted:
+        type: boolean
+      duplicate:
+        type: boolean
+      event:
+        $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobStatusEventResponse'
+      message:
+        type: string
+      order:
+        $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+    type: object
+  verifield-be_internal_modules_user_dto.CreateUserDTO:
+    properties:
+      email:
+        example: siti@verifield.id
+        maxLength: 160
+        type: string
+      name:
+        example: Siti Rahma
+        maxLength: 120
+        minLength: 3
+        type: string
+      password:
+        example: rahasia123
+        maxLength: 72
+        minLength: 8
+        type: string
+      role:
+        enum:
+        - admin
+        - client
+        - inspector
+        - cs
+        example: client
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  verifield-be_internal_modules_user_dto.UpdateUserDTO:
+    properties:
+      email:
+        example: siti@verifield.id
+        maxLength: 160
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Siti Rahma
+        maxLength: 120
+        minLength: 3
+        type: string
+      password:
+        example: rahasia123
+        maxLength: 72
+        minLength: 8
+        type: string
+      role:
+        enum:
+        - admin
+        - client
+        - inspector
+        - cs
+        example: admin
+        type: string
+    type: object
+  verifield-be_internal_modules_user_dto.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        example: siti@verifield.id
+        type: string
+      id:
+        example: 6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Siti Rahma
+        type: string
+      role:
+        example: client
+        type: string
+      updated_at:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: |-
+    REST API layanan inspeksi & sampling lapangan — Go + Gin dengan struktur modular ala NestJS.
+    Autentikasi di luar cakupan PoC: seluruh endpoint terbuka dan peran dipilih di frontend.
+  title: Verifield API
+  version: "1.0"
+paths:
+  /demo/actors:
+    get:
+      description: Pengganti login selama autentikasi berada di luar cakupan PoC.
+        Id yang dikembalikan dipakai sebagai header X-Actor-Id.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_modules_reference.DemoActorResponse'
+                  type: array
+              type: object
+      summary: Identitas siap pakai untuk pemilih peran
+      tags:
+      - reference
+  /health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Health check
+      tags:
+      - health
+  /inspection-types:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_modules_reference.InspectionTypeResponse'
+                  type: array
+              type: object
+      summary: Daftar jenis inspeksi yang masih ditawarkan
+      tags:
+      - reference
+  /inspectors:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_modules_reference.InspectorResponse'
+                  type: array
+              type: object
+      summary: Daftar inspektor aktif beserta jumlah penugasan berjalan
+      tags:
+      - reference
+  /orders:
+    get:
+      description: Klien otomatis hanya melihat order milik perusahaannya sendiri,
+        apa pun isi company_id.
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - default: 1
+        description: Halaman
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Jumlah data per halaman
+        in: query
+        name: limit
+        type: integer
+      - description: Cari ref/objek/lokasi/kota
+        in: query
+        name: search
+        type: string
+      - description: Saring status
+        enum:
+        - requested
+        - assigned
+        - on_the_way
+        - on_site
+        - in_progress
+        - completed
+        - failed
+        - cancelled
+        in: query
+        name: status
+        type: string
+      - description: Saring perusahaan
+        in: query
+        name: company_id
+        type: string
+      - description: Saring inspektor
+        in: query
+        name: inspector_id
+        type: string
+      - description: Saringan layar koordinator
+        enum:
+        - penugasan
+        - pembatalan
+        - basi
+        - terlambat
+        in: query
+        name: attention
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+                  type: array
+              type: object
+      summary: Daftar job order
+      tags:
+      - job-orders
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Data permintaan
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.CreateJobOrderDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+              type: object
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Buat permintaan inspeksi baru
+      tags:
+      - job-orders
+  /orders/{id}:
+    get:
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Detail job order beserta riwayat status
+      tags:
+      - job-orders
+  /orders/{id}/assign:
+    post:
+      consumes:
+      - application/json
+      description: expected_version wajib; bila order sudah berubah, permintaan ditolak
+        dengan 409 (keputusan B-09).
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Inspektor dan versi yang diharapkan
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.AssignInspectorDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Tugaskan inspektor
+      tags:
+      - job-orders
+  /orders/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Hasilnya bergantung pada tahap dan peran. Setelah pekerjaan dimulai,
+        pembatalan oleh klien menjadi permintaan yang menunggu koordinator (keputusan
+        B-05).
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Alasan pembatalan
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.CancelJobOrderDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.CancelResult'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Batalkan atau ajukan pembatalan
+      tags:
+      - job-orders
+  /orders/{id}/cancellations/{requestId}/decide:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cancellation request ID (UUID)
+        in: path
+        name: requestId
+        required: true
+        type: string
+      - description: Keputusan koordinator
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.DecideCancellationDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+              type: object
+      summary: Putuskan permintaan pembatalan
+      tags:
+      - job-orders
+  /orders/{id}/corrections:
+    post:
+      consumes:
+      - application/json
+      description: Boleh mundur ke tahap sebelumnya, wajib beralasan, dan tercatat
+        sebagai entri baru — riwayat tidak pernah ditimpa (keputusan B-06).
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status hasil koreksi beserta alasannya
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.CorrectStatusDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+              type: object
+      summary: Koreksi status oleh koordinator
+      tags:
+      - job-orders
+  /orders/{id}/events:
+    get:
+      description: after_seq memutar ulang hanya perubahan yang lebih baru dari kursor
+        yang dipegang klien.
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Kursor seq terakhir yang sudah dimiliki klien
+        in: query
+        name: after_seq
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobStatusEventResponse'
+                  type: array
+              type: object
+      summary: Riwayat status satu job order
+      tags:
+      - job-orders
+    post:
+      consumes:
+      - application/json
+      description: Idempoten lewat client_event_id. Pembaruan yang ditolak tetap menghasilkan
+        200 karena pengirimannya berhasil — yang gagal adalah perubahan statusnya
+        (keputusan B-07).
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Status baru beserta penanda unik perangkat
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.SubmitStatusEventDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.SubmitStatusEventResult'
+              type: object
+      summary: Perbarui status dari lapangan
+      tags:
+      - job-orders
+  /stream:
+    get:
+      description: Mengirim keadaan terkini setiap order yang berubah. Cakupan ditentukan
+        peran pemanggil. Saat menyambung ulang, browser mengirim Last-Event-ID sendiri;
+        pada koneksi pertama klien menyertakan last_event_id lewat query.
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Kursor seq terakhir yang sudah dimiliki klien
+        in: query
+        name: last_event_id
+        type: integer
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: aliran text/event-stream
+          schema:
+            type: string
+      summary: Stream perubahan job order (SSE)
+      tags:
+      - realtime
+  /users:
+    get:
+      description: Mengambil daftar user dengan paginasi, pencarian, dan sorting
+      parameters:
+      - default: 1
+        description: Halaman
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Jumlah data per halaman
+        in: query
+        name: limit
+        type: integer
+      - description: Cari berdasarkan nama/email
+        in: query
+        name: search
+        type: string
+      - description: Kolom sorting
+        enum:
+        - created_at
+        - updated_at
+        - name
+        - email
+        - role
+        in: query
+        name: sort_by
+        type: string
+      - description: Arah sorting
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_dir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Daftar user
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Data user
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_user_dto.CreateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Buat user baru
+      tags:
+      - users
+  /users/{id}:
+    delete:
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Hapus user
+      tags:
+      - users
+    get:
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Detail user
+      tags:
+      - users
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Field yang ingin diubah
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_user_dto.UpdateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Perbarui user
+      tags:
+      - users
+swagger: "2.0"

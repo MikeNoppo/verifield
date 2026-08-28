@@ -1,0 +1,21 @@
+{
+  "name": "@verifield/contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./openapi.json": "./openapi.json"
+  },
+  "scripts": {
+    "generate": "bun run generate:spec && bun run generate:types",
+    "generate:spec": "swagger2openapi ../../apps/backend/docs/swagger.json -o openapi.json",
+    "generate:types": "openapi-typescript ./openapi.json -o ./src/schema.ts",
+    "check": "bun run scripts/check.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "swagger2openapi": "^7.0.8",
+    "typescript": "^5"
+  }
+}

@@ -14,3 +14,6 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Dependency workspace (tiap paket punya .gitignore sendiri untuk sisanya)
+node_modules/

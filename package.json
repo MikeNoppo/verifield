@@ -1,0 +1,38 @@
+{
+  "name": "verifield",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "dev:web": "bun run --filter @verifield/frontend dev",
+    "dev:api": "bun run --filter @verifield/backend dev",
+    "build": "bun run --filter '*' build",
+    "lint": "bun run --filter '*' lint",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test",
+    "migrate": "bun run --filter @verifield/backend migrate",
+    "seed": "bun run --filter @verifield/backend seed",
+    "swagger": "bun run --filter @verifield/backend swagger",
+    "contract:generate": "bun run --filter @verifield/contract generate",
+    "contract:check": "bun run --filter @verifield/contract check",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "db:reset": "docker compose down -v && docker compose up -d postgres",
+    "stack:up": "docker compose --profile full up -d --build",
+    "stack:down": "docker compose --profile full down",
+    "stack:logs": "docker compose --profile full logs -f"
+  },
+  "packageManager": "bun@1.4.0",
+  "ignoreScripts": [
+    "sharp",
+    "unrs-resolver"
+  ],
+  "trustedDependencies": [
+    "sharp",
+    "unrs-resolver"
+  ]
+}

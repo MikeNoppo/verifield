@@ -1,0 +1,1838 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "description": "REST API layanan inspeksi & sampling lapangan — Go + Gin dengan struktur modular ala NestJS.\nAutentikasi di luar cakupan PoC: seluruh endpoint terbuka dan peran dipilih di frontend.",
+        "title": "Verifield API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {
+        "/demo/actors": {
+            "get": {
+                "description": "Pengganti login selama autentikasi berada di luar cakupan PoC. Id yang dikembalikan dipakai sebagai header X-Actor-Id.",
+                "tags": [
+                    "reference"
+                ],
+                "summary": "Identitas siap pakai untuk pemilih peran",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/internal_modules_reference.DemoActorResponse"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/inspection-types": {
+            "get": {
+                "tags": [
+                    "reference"
+                ],
+                "summary": "Daftar jenis inspeksi yang masih ditawarkan",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/internal_modules_reference.InspectionTypeResponse"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/inspectors": {
+            "get": {
+                "tags": [
+                    "reference"
+                ],
+                "summary": "Daftar inspektor aktif beserta jumlah penugasan berjalan",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/internal_modules_reference.InspectorResponse"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders": {
+            "get": {
+                "description": "Klien otomatis hanya melihat order milik perusahaannya sendiri, apa pun isi company_id.",
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Daftar job order",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Halaman",
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "description": "Jumlah data per halaman",
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    },
+                    {
+                        "description": "Cari ref/objek/lokasi/kota",
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Saring status",
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "requested",
+                                "assigned",
+                                "on_the_way",
+                                "on_site",
+                                "in_progress",
+                                "completed",
+                                "failed",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "description": "Saring perusahaan",
+                        "name": "company_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Saring inspektor",
+                        "name": "inspector_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Saringan layar koordinator",
+                        "name": "attention",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "penugasan",
+                                "pembatalan",
+                                "basi",
+                                "terlambat"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Buat permintaan inspeksi baru",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.CreateJobOrderDTO"
+                            }
+                        }
+                    },
+                    "description": "Data permintaan",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}": {
+            "get": {
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Detail job order beserta riwayat status",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/assign": {
+            "post": {
+                "description": "expected_version wajib; bila order sudah berubah, permintaan ditolak dengan 409 (keputusan B-09).",
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Tugaskan inspektor",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.AssignInspectorDTO"
+                            }
+                        }
+                    },
+                    "description": "Inspektor dan versi yang diharapkan",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/cancel": {
+            "post": {
+                "description": "Hasilnya bergantung pada tahap dan peran. Setelah pekerjaan dimulai, pembatalan oleh klien menjadi permintaan yang menunggu koordinator (keputusan B-05).",
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Batalkan atau ajukan pembatalan",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.CancelJobOrderDTO"
+                            }
+                        }
+                    },
+                    "description": "Alasan pembatalan",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.CancelResult"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/cancellations/{requestId}/decide": {
+            "post": {
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Putuskan permintaan pembatalan",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Cancellation request ID (UUID)",
+                        "name": "requestId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.DecideCancellationDTO"
+                            }
+                        }
+                    },
+                    "description": "Keputusan koordinator",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/corrections": {
+            "post": {
+                "description": "Boleh mundur ke tahap sebelumnya, wajib beralasan, dan tercatat sebagai entri baru — riwayat tidak pernah ditimpa (keputusan B-06).",
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Koreksi status oleh koordinator",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.CorrectStatusDTO"
+                            }
+                        }
+                    },
+                    "description": "Status hasil koreksi beserta alasannya",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/{id}/events": {
+            "get": {
+                "description": "after_seq memutar ulang hanya perubahan yang lebih baru dari kursor yang dipegang klien.",
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Riwayat status satu job order",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Kursor seq terakhir yang sudah dimiliki klien",
+                        "name": "after_seq",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobStatusEventResponse"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Idempoten lewat client_event_id. Pembaruan yang ditolak tetap menghasilkan 200 karena pengirimannya berhasil — yang gagal adalah perubahan statusnya (keputusan B-07).",
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Perbarui status dari lapangan",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.SubmitStatusEventDTO"
+                            }
+                        }
+                    },
+                    "description": "Status baru beserta penanda unik perangkat",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.SubmitStatusEventResult"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/stream": {
+            "get": {
+                "description": "Mengirim keadaan terkini setiap order yang berubah. Cakupan ditentukan peran pemanggil. Saat menyambung ulang, browser mengirim Last-Event-ID sendiri; pada koneksi pertama klien menyertakan last_event_id lewat query.",
+                "tags": [
+                    "realtime"
+                ],
+                "summary": "Stream perubahan job order (SSE)",
+                "parameters": [
+                    {
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Kursor seq terakhir yang sudah dimiliki klien",
+                        "name": "last_event_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "aliran text/event-stream",
+                        "content": {
+                            "text/event-stream": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/users": {
+            "get": {
+                "description": "Mengambil daftar user dengan paginasi, pencarian, dan sorting",
+                "tags": [
+                    "users"
+                ],
+                "summary": "Daftar user",
+                "parameters": [
+                    {
+                        "description": "Halaman",
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "description": "Jumlah data per halaman",
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 10
+                        }
+                    },
+                    {
+                        "description": "Cari berdasarkan nama/email",
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "Kolom sorting",
+                        "name": "sort_by",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "created_at",
+                                "updated_at",
+                                "name",
+                                "email",
+                                "role"
+                            ]
+                        }
+                    },
+                    {
+                        "description": "Arah sorting",
+                        "name": "sort_dir",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/verifield-be_internal_modules_user_dto.UserResponse"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "Buat user baru",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_user_dto.CreateUserDTO"
+                            }
+                        }
+                    },
+                    "description": "Data user",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_user_dto.UserResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}": {
+            "get": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "Detail user",
+                "parameters": [
+                    {
+                        "description": "User ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_user_dto.UserResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "Hapus user",
+                "parameters": [
+                    {
+                        "description": "User ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "Perbarui user",
+                "parameters": [
+                    {
+                        "description": "User ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_user_dto.UpdateUserDTO"
+                            }
+                        }
+                    },
+                    "description": "Field yang ingin diubah",
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "data": {
+                                                    "$ref": "#/components/schemas/verifield-be_internal_modules_user_dto.UserResponse"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/verifield-be_internal_common_response.Envelope"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "servers": [
+        {
+            "url": "/api/v1"
+        }
+    ],
+    "components": {
+        "schemas": {
+            "internal_modules_reference.DemoActorResponse": {
+                "type": "object",
+                "properties": {
+                    "company_id": {
+                        "type": "string"
+                    },
+                    "company_name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "admin",
+                            "client",
+                            "inspector",
+                            "cs"
+                        ]
+                    }
+                }
+            },
+            "internal_modules_reference.InspectionTypeResponse": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "example": "bulk_cargo"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Inspeksi Kargo Curah"
+                    }
+                }
+            },
+            "internal_modules_reference.InspectorResponse": {
+                "type": "object",
+                "properties": {
+                    "active_jobs": {
+                        "type": "integer"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "verifield-be_internal_common_apperror.FieldError": {
+                "type": "object",
+                "properties": {
+                    "field": {
+                        "type": "string",
+                        "example": "email"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "email wajib diisi"
+                    }
+                }
+            },
+            "verifield-be_internal_common_response.Envelope": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "data": {},
+                    "errors": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/verifield-be_internal_common_apperror.FieldError"
+                        }
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "meta": {
+                        "$ref": "#/components/schemas/verifield-be_internal_common_response.Meta"
+                    },
+                    "success": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "verifield-be_internal_common_response.Meta": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "page": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "total": {
+                        "type": "integer",
+                        "example": 42
+                    },
+                    "total_page": {
+                        "type": "integer",
+                        "example": 5
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.AssignInspectorDTO": {
+                "type": "object",
+                "required": [
+                    "expected_version",
+                    "inspector_id"
+                ],
+                "properties": {
+                    "expected_version": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "example": 1
+                    },
+                    "inspector_id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.CancelJobOrderDTO": {
+                "type": "object",
+                "required": [
+                    "reason"
+                ],
+                "properties": {
+                    "expected_version": {
+                        "description": "Kosong berarti pemanggil tidak peduli pada versi. Diisi oleh koordinator\nyang bertindak dari layar yang mungkin sudah basi.",
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "reason": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 3,
+                        "example": "Jadwal pengapalan dimajukan"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.CancelResult": {
+                "type": "object",
+                "properties": {
+                    "fee": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "travel",
+                            "visit",
+                            "coordinator"
+                        ],
+                        "example": "travel"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "order": {
+                        "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "cancelled",
+                            "pending_approval"
+                        ],
+                        "example": "cancelled"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.CorrectStatusDTO": {
+                "type": "object",
+                "required": [
+                    "expected_version",
+                    "reason",
+                    "to_status"
+                ],
+                "properties": {
+                    "expected_version": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "reason": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 3,
+                        "example": "Inspektor salah menekan Selesai padahal baru tiba"
+                    },
+                    "to_status": {
+                        "type": "string",
+                        "enum": [
+                            "requested",
+                            "assigned",
+                            "on_the_way",
+                            "on_site",
+                            "in_progress",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                        ]
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.CreateJobOrderDTO": {
+                "type": "object",
+                "required": [
+                    "city",
+                    "inspection_type_id",
+                    "location_address",
+                    "location_name",
+                    "object_description",
+                    "scheduled_end_at",
+                    "scheduled_start_at"
+                ],
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "maxLength": 80,
+                        "minLength": 2,
+                        "example": "Jakarta"
+                    },
+                    "inspection_type_id": {
+                        "type": "string",
+                        "example": "6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11"
+                    },
+                    "location_address": {
+                        "type": "string",
+                        "minLength": 3,
+                        "example": "Jl. Palmerah No. 1, Jakarta Utara"
+                    },
+                    "location_name": {
+                        "type": "string",
+                        "maxLength": 160,
+                        "minLength": 3,
+                        "example": "Dermaga 3, Pelabuhan Tanjung Priok"
+                    },
+                    "object_description": {
+                        "type": "string",
+                        "maxLength": 255,
+                        "minLength": 3,
+                        "example": "Batu bara 5.000 MT"
+                    },
+                    "scheduled_end_at": {
+                        "type": "string"
+                    },
+                    "scheduled_start_at": {
+                        "type": "string"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.DecideCancellationDTO": {
+                "type": "object",
+                "required": [
+                    "decision"
+                ],
+                "properties": {
+                    "decision": {
+                        "type": "string",
+                        "enum": [
+                            "approve",
+                            "reject"
+                        ],
+                        "example": "approve"
+                    },
+                    "note": {
+                        "type": "string",
+                        "maxLength": 500
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.JobOrderResponse": {
+                "type": "object",
+                "properties": {
+                    "cancellation_requested": {
+                        "type": "boolean"
+                    },
+                    "city": {
+                        "type": "string"
+                    },
+                    "company_id": {
+                        "type": "string"
+                    },
+                    "company_name": {
+                        "type": "string",
+                        "example": "PT Karya Bahari Ekspor"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "created_by_name": {
+                        "type": "string"
+                    },
+                    "current_status": {
+                        "type": "string",
+                        "enum": [
+                            "requested",
+                            "assigned",
+                            "on_the_way",
+                            "on_site",
+                            "in_progress",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                        ],
+                        "example": "in_progress"
+                    },
+                    "events": {
+                        "description": "Hanya terisi pada endpoint detail; daftar tidak membawa riwayat.",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobStatusEventResponse"
+                        }
+                    },
+                    "exit_status": {
+                        "description": "Tahap terjauh yang sempat dicapai sebelum order berakhir. Untuk order yang\nmasih berjalan nilainya sama dengan current_status; untuk yang dibatalkan\natau gagal, inilah yang menjawab \"sejauh mana sempat berjalan\".\n\nDihitung server karena daftar order sengaja tidak membawa riwayat, dan\njustru di daftar itulah pertanyaan tersebut paling sering muncul.",
+                        "type": "string",
+                        "enum": [
+                            "requested",
+                            "assigned",
+                            "on_the_way",
+                            "on_site",
+                            "in_progress",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                        ]
+                    },
+                    "has_open_alert": {
+                        "type": "boolean"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "inspection_type_id": {
+                        "type": "string"
+                    },
+                    "inspection_type_name": {
+                        "type": "string",
+                        "example": "Inspeksi Kargo Curah"
+                    },
+                    "inspector_id": {
+                        "type": "string"
+                    },
+                    "inspector_name": {
+                        "type": "string"
+                    },
+                    "location_address": {
+                        "type": "string"
+                    },
+                    "location_name": {
+                        "type": "string"
+                    },
+                    "object_description": {
+                        "type": "string"
+                    },
+                    "pending_cancellation": {
+                        "description": "Hanya terisi pada endpoint detail. Koordinator butuh id-nya untuk\nmemutuskan, dan alasannya untuk memutuskan dengan benar.",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.PendingCancellation"
+                            }
+                        ]
+                    },
+                    "reference_number": {
+                        "type": "string",
+                        "example": "JO-2026-0001"
+                    },
+                    "scheduled_end_at": {
+                        "type": "string"
+                    },
+                    "scheduled_start_at": {
+                        "type": "string"
+                    },
+                    "seq": {
+                        "description": "Seq event terakhir milik order ini. Klien memakainya untuk mengabaikan\npesan real-time yang lebih tua daripada yang sudah diterapkan, sehingga\njaminan urutan berlaku di dua sisi — bukan hanya di server.",
+                        "type": "integer"
+                    },
+                    "status_changed_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "description": "Dikirim balik saat mutasi sebagai expected_version (keputusan B-09).",
+                        "type": "integer"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.JobStatusEventResponse": {
+                "type": "object",
+                "properties": {
+                    "accepted": {
+                        "description": "Keputusan B-07: event yang ditolak tetap tersimpan. Hanya event\nAccepted=true yang pernah mengubah status.",
+                        "type": "boolean"
+                    },
+                    "actor_id": {
+                        "type": "string"
+                    },
+                    "actor_name": {
+                        "type": "string",
+                        "example": "Rina Amelia"
+                    },
+                    "actor_role": {
+                        "type": "string",
+                        "enum": [
+                            "admin",
+                            "client",
+                            "inspector",
+                            "cs"
+                        ],
+                        "example": "inspector"
+                    },
+                    "client_event_id": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "from_status": {
+                        "type": "string",
+                        "enum": [
+                            "requested",
+                            "assigned",
+                            "on_the_way",
+                            "on_site",
+                            "in_progress",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                        ],
+                        "example": "on_site"
+                    },
+                    "id": {
+                        "type": "string",
+                        "example": "6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11"
+                    },
+                    "is_correction": {
+                        "type": "boolean"
+                    },
+                    "job_order_id": {
+                        "type": "string"
+                    },
+                    "occurred_at": {
+                        "description": "Keputusan B-02: waktu kejadian di lapangan dan waktu terima server dicatat\nterpisah. Timeline diurutkan dengan OccurredAt; status terkini ditentukan\ndengan Seq.",
+                        "type": "string"
+                    },
+                    "occurred_at_adjusted": {
+                        "type": "boolean"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "received_at": {
+                        "type": "string"
+                    },
+                    "rejection_reason": {
+                        "type": "string",
+                        "enum": [
+                            "late_after_final",
+                            "out_of_order",
+                            "pending_approval",
+                            "cancellation_rejected"
+                        ],
+                        "example": "late_after_final"
+                    },
+                    "seq": {
+                        "type": "integer",
+                        "example": 42
+                    },
+                    "to_status": {
+                        "type": "string",
+                        "enum": [
+                            "requested",
+                            "assigned",
+                            "on_the_way",
+                            "on_site",
+                            "in_progress",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                        ],
+                        "example": "in_progress"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.PendingCancellation": {
+                "type": "object",
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "requested_by_name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.SubmitStatusEventDTO": {
+                "type": "object",
+                "required": [
+                    "client_event_id",
+                    "to_status"
+                ],
+                "properties": {
+                    "client_event_id": {
+                        "description": "Keputusan B-03: penanda unik dibuat di perangkat sebelum kiriman pertama,\nsehingga tombol yang ditekan berulang kali saat sinyal lemah hanya\nmenghasilkan satu baris riwayat.",
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 8,
+                        "example": "6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11"
+                    },
+                    "occurred_at": {
+                        "description": "Keputusan B-02: waktu saat tombol ditekan di lapangan, bukan saat\nlaporan berhasil terkirim. Boleh kosong bila perangkat sedang online.",
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "example": "Kargo belum tiba di dermaga"
+                    },
+                    "to_status": {
+                        "type": "string",
+                        "enum": [
+                            "on_the_way",
+                            "on_site",
+                            "in_progress",
+                            "completed",
+                            "failed"
+                        ],
+                        "example": "on_site"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_joborder_dto.SubmitStatusEventResult": {
+                "type": "object",
+                "properties": {
+                    "accepted": {
+                        "type": "boolean"
+                    },
+                    "duplicate": {
+                        "type": "boolean"
+                    },
+                    "event": {
+                        "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobStatusEventResponse"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "order": {
+                        "$ref": "#/components/schemas/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_user_dto.CreateUserDTO": {
+                "type": "object",
+                "required": [
+                    "email",
+                    "name",
+                    "password"
+                ],
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "maxLength": 160,
+                        "example": "siti@verifield.id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 3,
+                        "example": "Siti Rahma"
+                    },
+                    "password": {
+                        "type": "string",
+                        "maxLength": 72,
+                        "minLength": 8,
+                        "example": "rahasia123"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "admin",
+                            "client",
+                            "inspector",
+                            "cs"
+                        ],
+                        "example": "client"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_user_dto.UpdateUserDTO": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "maxLength": 160,
+                        "example": "siti@verifield.id"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 3,
+                        "example": "Siti Rahma"
+                    },
+                    "password": {
+                        "type": "string",
+                        "maxLength": 72,
+                        "minLength": 8,
+                        "example": "rahasia123"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "admin",
+                            "client",
+                            "inspector",
+                            "cs"
+                        ],
+                        "example": "admin"
+                    }
+                }
+            },
+            "verifield-be_internal_modules_user_dto.UserResponse": {
+                "type": "object",
+                "properties": {
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "siti@verifield.id"
+                    },
+                    "id": {
+                        "type": "string",
+                        "example": "6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Siti Rahma"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "client"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}
