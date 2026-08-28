@@ -376,6 +376,8 @@ func (s *service) SubmitEvent(ctx context.Context, actor Actor, id string, input
 			return err
 		}
 
+		notifySeq := event.Seq
+
 		if event.Accepted {
 			order.CurrentStatus = to
 			// Waktu kejadian di lapangan, bukan waktu terima. Laporan yang
@@ -385,6 +387,18 @@ func (s *service) SubmitEvent(ctx context.Context, actor Actor, id string, input
 			order.StatusChangedAt = occurredAt
 			if err := tx.UpdateOrderStatus(ctx, order, order.Version); err != nil {
 				return err
+			}
+
+			// Keputusan B-10. Inspektor yang sedang offline tidak tahu klien
+			// mengajukan pembatalan, dan tetap menyelesaikan pekerjaannya.
+			if to.IsFinal() {
+				closing, err := closePendingCancellation(ctx, tx, order, actor, receivedAt)
+				if err != nil {
+					return err
+				}
+				if closing != nil {
+					notifySeq = closing.Seq
+				}
 			}
 		} else if from.IsFinal() {
 			alert := &schema.JobOrderAlert{
@@ -401,7 +415,7 @@ func (s *service) SubmitEvent(ctx context.Context, actor Actor, id string, input
 			}
 		}
 
-		return tx.Notify(ctx, event.Seq, order.ID)
+		return tx.Notify(ctx, notifySeq, order.ID)
 	})
 	if err != nil {
 		return nil, err
@@ -520,6 +534,12 @@ func (s *service) Cancel(ctx context.Context, actor Actor, id string, input dto.
 			return err
 		}
 
+		// Koordinator boleh membatalkan langsung sekalipun ada permintaan klien
+		// yang masih menunggu. Permintaan itu terpenuhi, bukan menggantung.
+		if _, err := closePendingCancellation(ctx, tx, order, actor, now); err != nil {
+			return err
+		}
+
 		return tx.Notify(ctx, event.Seq, order.ID)
 	})
 	if err != nil {
@@ -574,8 +594,24 @@ func (s *service) DecideCancellation(ctx context.Context, actor Actor, id, reque
 		if request.JobOrderID != order.ID {
 			return apperror.NotFound("Permintaan pembatalan tidak ditemukan")
 		}
+		if request.Status == schema.CancellationObsolete {
+			return apperror.Conflict(fmt.Sprintf(
+				"Pekerjaan sudah %s sebelum permintaan ini sempat diputuskan, sehingga permintaannya gugur. Statusnya tidak dapat diubah lagi — aspek komersialnya perlu diselesaikan dengan klien.",
+				StatusLabel(order.CurrentStatus),
+			))
+		}
 		if request.Status != schema.CancellationPending {
 			return apperror.Conflict("Permintaan pembatalan ini sudah diputuskan sebelumnya.")
+		}
+		// Keputusan B-10. Jalur tulis lain sudah menutup permintaan yang gugur
+		// begitu ordernya final, jadi pemeriksaan ini semestinya tak pernah
+		// tercapai — ia ada karena status final tidak boleh dibuka kembali oleh
+		// jalur mana pun, bukan hanya oleh jalur yang kebetulan sudah dijaga.
+		if order.CurrentStatus.IsFinal() {
+			return apperror.Conflict(fmt.Sprintf(
+				"Pekerjaan sudah %s sebelum permintaan ini diputuskan, sehingga pembatalan tidak dapat lagi diterapkan. Selesaikan aspek komersialnya dengan klien.",
+				StatusLabel(order.CurrentStatus),
+			))
 		}
 
 		now := time.Now().UTC()
@@ -675,7 +711,18 @@ func (s *service) Correct(ctx context.Context, actor Actor, id string, input dto
 			return err
 		}
 
-		return tx.Notify(ctx, event.Seq, order.ID)
+		notifySeq := event.Seq
+		if to.IsFinal() {
+			closing, err := closePendingCancellation(ctx, tx, order, actor, now)
+			if err != nil {
+				return err
+			}
+			if closing != nil {
+				notifySeq = closing.Seq
+			}
+		}
+
+		return tx.Notify(ctx, notifySeq, order.ID)
 	})
 	if err != nil {
 		return nil, err
@@ -710,6 +757,79 @@ func ensureVersion(order *schema.JobOrder, expected int) error {
 		"Order ini baru saja diubah orang lain, dan sekarang berstatus %s. Tampilan Anda sudah diperbarui — silakan periksa lalu ulangi bila masih diperlukan.",
 		StatusLabel(order.CurrentStatus),
 	))
+}
+
+// closePendingCancellation menutup permintaan pembatalan yang masih menunggu
+// keputusan ketika ordernya sudah mencapai status final lewat jalur lain
+// (keputusan B-10). Dipanggil dari setiap jalur tulis yang bisa membuat order
+// menjadi final, sehingga invariannya berlaku menyeluruh: order berstatus final
+// tidak pernah menyisakan permintaan pembatalan yang terbuka.
+//
+// Tanpa ini, permintaan tersebut tetap tampil sebagai panel keputusan di layar
+// koordinator, dan menyetujuinya akan memindahkan order keluar dari status
+// final — padahal Completed, Failed, dan Cancelled tidak punya transisi keluar.
+//
+// Permintaan yang berakhir pada order Cancelled dianggap terpenuhi. Selain itu
+// permintaannya gugur, dan koordinator diberi tanda: pekerjaan lapangan sudah
+// terlanjur dikerjakan, sedangkan klien terlanjur meminta pembatalan — keduanya
+// nyata, dan penyelesaian komersialnya tidak boleh hilang diam-diam (B-07).
+func closePendingCancellation(
+	ctx context.Context, tx Repository, order *schema.JobOrder, actor Actor, now time.Time,
+) (*schema.JobStatusEvent, error) {
+	request, err := tx.FindPendingCancellation(ctx, order.ID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	fulfilled := order.CurrentStatus == schema.StatusCancelled
+
+	request.DecidedAt = &now
+	// Hanya koordinator yang benar-benar memutuskan. Pada jalur inspektor,
+	// permintaan ini gugur karena keadaan, bukan karena ada yang memutuskannya.
+	if actor.Role == schema.RoleAdmin {
+		request.DecidedByID = &actor.ID
+	}
+	if fulfilled {
+		request.Status = schema.CancellationApproved
+		request.DecisionNote = ptr("Order dibatalkan koordinator, sehingga permintaan ini terpenuhi.")
+	} else {
+		request.Status = schema.CancellationObsolete
+		request.DecisionNote = ptr(fmt.Sprintf(
+			"Pekerjaan sudah %s sebelum permintaan ini diputuskan, sehingga permintaan gugur.",
+			StatusLabel(order.CurrentStatus),
+		))
+	}
+	if err := tx.UpdateCancellation(ctx, request); err != nil {
+		return nil, err
+	}
+
+	if fulfilled {
+		return nil, nil
+	}
+
+	event, err := insertRejected(ctx, tx, order, schema.StatusCancelled, actor, now,
+		RejectionCancellationObsolete, request.DecisionNote)
+	if err != nil {
+		return nil, err
+	}
+
+	alert := &schema.JobOrderAlert{
+		JobOrderID:    order.ID,
+		Type:          schema.AlertCancellationObsolete,
+		SourceEventID: &event.ID,
+		Message: fmt.Sprintf(
+			"Klien mengajukan pembatalan, tetapi pekerjaan sudah %s sebelum keputusan diambil. Statusnya tidak dapat diubah lagi — aspek komersialnya perlu diselesaikan dengan klien.",
+			StatusLabel(order.CurrentStatus),
+		),
+	}
+	if err := tx.InsertAlert(ctx, alert); err != nil {
+		return nil, err
+	}
+
+	return event, nil
 }
 
 func insertTransition(

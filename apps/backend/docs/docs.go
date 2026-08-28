@@ -1515,7 +1515,8 @@ const docTemplate = `{
                         "late_after_final",
                         "out_of_order",
                         "pending_approval",
-                        "cancellation_rejected"
+                        "cancellation_rejected",
+                        "cancellation_obsolete"
                     ],
                     "example": "late_after_final"
                 },

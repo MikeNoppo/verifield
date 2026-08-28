@@ -52,6 +52,10 @@ const (
 	// RejectionCancellationRejected menandai permintaan pembatalan yang ditolak
 	// koordinator, sehingga pekerjaan berlanjut.
 	RejectionCancellationRejected = "cancellation_rejected"
+	// RejectionCancellationObsolete menandai permintaan pembatalan yang gugur
+	// karena pekerjaannya mencapai status final sebelum koordinator sempat
+	// memutuskan (keputusan B-10).
+	RejectionCancellationObsolete = "cancellation_obsolete"
 )
 
 // Batas kewajaran waktu kejadian yang dilaporkan perangkat (keputusan B-02).

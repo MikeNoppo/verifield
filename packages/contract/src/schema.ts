@@ -1098,7 +1098,7 @@ export interface components {
              * @example late_after_final
              * @enum {string}
              */
-            rejection_reason?: "late_after_final" | "out_of_order" | "pending_approval" | "cancellation_rejected";
+            rejection_reason?: "late_after_final" | "out_of_order" | "pending_approval" | "cancellation_rejected" | "cancellation_obsolete";
             /** @example 42 */
             seq?: number;
             /**

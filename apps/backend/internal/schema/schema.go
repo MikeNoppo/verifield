@@ -112,12 +112,20 @@ const (
 	CancellationPending  CancellationStatus = "pending"
 	CancellationApproved CancellationStatus = "approved"
 	CancellationRejected CancellationStatus = "rejected"
+	// CancellationObsolete menandai permintaan yang gugur sebelum sempat
+	// diputuskan, karena pekerjaannya sudah mencapai status final lebih dulu
+	// (keputusan B-10).
+	CancellationObsolete CancellationStatus = "obsolete"
 )
 
 type AlertType string
 
 const (
 	AlertLateUpdateRejected AlertType = "late_update_rejected"
+	// AlertCancellationObsolete muncul ketika pekerjaan selesai sebelum
+	// koordinator memutuskan permintaan pembatalan klien: statusnya tidak bisa
+	// lagi diubah, tetapi aspek komersialnya tetap perlu diselesaikan.
+	AlertCancellationObsolete AlertType = "cancellation_obsolete"
 )
 
 // ---------------------------------------------------------------------------

@@ -37,7 +37,7 @@ type JobStatusEventResponse struct {
 	// Keputusan B-07: event yang ditolak tetap tersimpan. Hanya event
 	// Accepted=true yang pernah mengubah status.
 	Accepted        bool    `json:"accepted"`
-	RejectionReason *string `json:"rejection_reason" enums:"late_after_final,out_of_order,pending_approval,cancellation_rejected" example:"late_after_final"`
+	RejectionReason *string `json:"rejection_reason" enums:"late_after_final,out_of_order,pending_approval,cancellation_rejected,cancellation_obsolete" example:"late_after_final"`
 
 	IsCorrection bool    `json:"is_correction"`
 	Reason       *string `json:"reason"`
