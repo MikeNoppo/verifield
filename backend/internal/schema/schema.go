@@ -31,6 +31,15 @@
 //
 // Relasi TIDAK ikut ter-load otomatis saat query. Minta secara eksplisit di
 // repository: db.Preload("Owner").Find(&products) — padanan `include` di Prisma.
+//
+// # Jebakan default pada kolom bool
+//
+// GORM membuang nilai zero dari INSERT untuk setiap field yang tag-nya memuat
+// `default:`. Akibatnya `IsActive: false` pada struct bertag `default:true`
+// tersimpan sebagai true, tanpa error dan tanpa peringatan. Seluruh jalur
+// pembuatan yang ada sekarang mengisi IsActive eksplisit dengan true sehingga
+// aman — tetapi begitu ada kebutuhan membuat baris non-aktif, hapus dulu
+// `default:true` dari tag-nya. Jangan mengandalkan nilai yang disetel di struct.
 package schema
 
 import (
@@ -305,8 +314,13 @@ type JobStatusEvent struct {
 	// Keputusan B-07: event yang datang setelah status final ditolak, tetapi
 	// tetap dicatat dengan Accepted=false supaya pekerjaan nyata inspektor tidak
 	// hilang begitu saja. Hanya event Accepted=true yang mengubah status.
-	Accepted        bool    `gorm:"not null;default:true"    json:"accepted"`
-	RejectionReason *string `gorm:"type:varchar(40)"         json:"rejection_reason,omitempty"`
+	//
+	// WARNING: kolom ini sengaja TIDAK diberi default database. GORM membuang
+	// nilai zero dari INSERT untuk field yang tag-nya memuat `default:`, jadi
+	// `Accepted: false` akan tersimpan sebagai true tanpa error — persis
+	// mematikan keputusan B-07. Setiap penyisipan wajib mengisinya eksplisit.
+	Accepted        bool    `gorm:"not null"           json:"accepted"`
+	RejectionReason *string `gorm:"type:varchar(40)"   json:"rejection_reason,omitempty"`
 
 	// Keputusan B-06: koreksi mundur adalah wewenang koordinator dan wajib beralasan.
 	IsCorrection bool    `gorm:"not null;default:false"    json:"is_correction"`
