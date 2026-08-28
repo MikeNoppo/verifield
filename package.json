@@ -22,9 +22,9 @@
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose stop postgres",
     "db:reset": "docker compose down -v && docker compose up -d postgres",
-    "stack:up": "docker compose --profile full up -d --build",
-    "stack:down": "docker compose --profile full down",
-    "stack:logs": "docker compose --profile full logs -f"
+    "stack:up": "docker compose up -d --build",
+    "stack:down": "docker compose down",
+    "stack:logs": "docker compose logs -f"
   },
   "packageManager": "bun@1.4.0",
   "ignoreScripts": [
