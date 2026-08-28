@@ -18,6 +18,7 @@ import (
 	"verifield-be/internal/common/middleware"
 	"verifield-be/internal/common/validation"
 	"verifield-be/internal/modules/joborder"
+	"verifield-be/internal/modules/realtime"
 	"verifield-be/internal/modules/reference"
 	"verifield-be/internal/modules/user"
 )
@@ -32,6 +33,7 @@ type Application struct {
 	user      *user.Module
 	joborder  *joborder.Module
 	reference *reference.Module
+	realtime  *realtime.Module
 
 	// requireActor menggantikan guard autentikasi selama autentikasi berada di
 	// luar cakupan PoC.
@@ -60,6 +62,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 	userModule := user.NewModule(db)
 	joborderModule := joborder.NewModule(db, userModule.Service)
 	referenceModule := reference.NewModule(db)
+	realtimeModule := realtime.NewModule(cfg.Database.DSN(), joborderModule.Service, log)
 
 	engine := gin.New()
 
@@ -81,6 +84,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 		user:         userModule,
 		joborder:     joborderModule,
 		reference:    referenceModule,
+		realtime:     realtimeModule,
 		requireActor: middleware.RequireActor(userModule.Service),
 	}
 
@@ -94,11 +98,20 @@ func (a *Application) Engine() *gin.Engine { return a.engine }
 
 // Run menjalankan HTTP server dan menutupnya dengan rapi saat ctx dibatalkan.
 func (a *Application) Run(ctx context.Context) error {
+	// Listener perubahan hidup selama aplikasi berjalan dan berhenti sendiri
+	// begitu ctx dibatalkan.
+	a.realtime.Start(ctx)
+
 	server := &http.Server{
-		Addr:         a.cfg.HTTP.Addr(),
-		Handler:      a.engine,
-		ReadTimeout:  a.cfg.HTTP.ReadTimeout,
-		WriteTimeout: a.cfg.HTTP.WriteTimeout,
+		Addr:        a.cfg.HTTP.Addr(),
+		Handler:     a.engine,
+		ReadTimeout: a.cfg.HTTP.ReadTimeout,
+		// WARNING: WriteTimeout sengaja tidak diisi. Ia membatasi umur SELURUH
+		// response, dan stream SSE memang dirancang tetap terbuka selama
+		// berjam-jam — memasangnya akan memutus setiap klien secara berkala.
+		// Koneksi mati tetap terdeteksi lewat ReadTimeout pada permintaan
+		// berikutnya dan lewat pesan keep-alive yang gagal ditulis.
+		WriteTimeout: 0,
 	}
 
 	serverErr := make(chan error, 1)

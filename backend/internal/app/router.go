@@ -25,6 +25,7 @@ func (a *Application) registerRoutes() {
 	a.user.RegisterRoutes(api)
 	a.reference.RegisterRoutes(api)
 	a.joborder.RegisterRoutes(api, a.requireActor)
+	a.realtime.RegisterRoutes(api, a.requireActor)
 
 	// Dokumentasi API tidak diekspos di production.
 	if !a.cfg.App.IsProduction() {
