@@ -67,15 +67,18 @@ func run() error {
 			"email", created.Email,
 			"role", string(created.Role),
 		)
-		return nil
 
 	case isConflict(err):
 		// Sudah ada: naikkan jadi admin supaya perintah ini tetap idempoten.
-		return promoteExisting(ctx, users, cfg.Seed.AdminEmail, log)
+		if err := promoteExisting(ctx, users, cfg.Seed.AdminEmail, log); err != nil {
+			return err
+		}
 
 	default:
 		return err
 	}
+
+	return seedSample(ctx, db, cfg.Seed.AdminPassword, log)
 }
 
 // promoteExisting menaikkan akun yang sudah ada menjadi admin aktif.

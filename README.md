@@ -88,7 +88,7 @@ curl -X POST localhost:8080/api/v1/auth/login -H 'Content-Type: application/json
 curl localhost:8080/api/v1/auth/me -H "Authorization: Bearer <access_token>"
 ```
 
-Role yang tersedia: `admin` (koordinator operasional), `client`, `inspector`, `cs`. Registrasi publik selalu menghasilkan role `client`. Admin pertama dibuat lewat `make seed` (baca `SEED_ADMIN_*` dari `.env`).
+Role yang tersedia: `admin` (koordinator operasional), `client`, `inspector`, `cs`. Registrasi publik selalu menghasilkan role `client`. Admin pertama dibuat lewat `make seed` (baca `SEED_ADMIN_*` dari `.env`), yang sekaligus mengisi data contoh.
 
 ## Bentuk response
 
