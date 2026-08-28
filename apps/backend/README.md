@@ -82,6 +82,7 @@ untuk probe Kubernetes.
 | POST | `/orders/{id}/assign` | Tugaskan inspektor — butuh `expected_version` (B-09) |
 | POST | `/orders/{id}/cancel` | Batalkan atau ajukan pembatalan (B-05) |
 | POST | `/orders/{id}/cancellations/{reqId}/decide` | Putuskan permintaan pembatalan |
+| POST | `/orders/{id}/cancellations/{reqId}/settle` | Putuskan penyelesaian komersial — status tidak berubah (B-10) |
 | POST | `/orders/{id}/corrections` | Koreksi status — wajib beralasan (B-06) |
 | GET | `/stream?last_event_id=` | **SSE** — perubahan order, disaring menurut peran |
 | GET · POST · PATCH · DELETE | `/users`, `/users/{id}` | CRUD user |
@@ -152,7 +153,7 @@ go test ./...
 |---|---|
 | [transition_test.go](internal/modules/joborder/transition_test.go) | Tabel transisi hanya maju; tidak ada jalan keluar dari status final; batas kewajaran `occurred_at` (B-02, B-06) |
 | [visibility_test.go](internal/modules/joborder/visibility_test.go) | Batas baca per peran, dipakai jalur baca maupun jalur siaran (A-03) |
-| [cancellation_test.go](internal/modules/joborder/cancellation_test.go) | Permintaan pembatalan tidak pernah menggantung pada order final, dan status final tidak dapat dibuka kembali (B-10) |
+| [cancellation_test.go](internal/modules/joborder/cancellation_test.go) | Status final tidak dapat dibuka kembali, permintaan yang tersusul berpindah menunggu penyelesaian, dan hasilnya tercatat (B-10) |
 | [hub_test.go](internal/modules/realtime/hub_test.go) | Fan-out SSE dan pemulihan kursor |
 | [smoke_test.go](internal/app/smoke_test.go) | Rantai middleware, envelope validasi, password tidak pernah bocor |
 | [migrations_test.go](migrations/migrations_test.go) | Setiap migrasi punya blok `-- +goose Down` yang tidak kosong |

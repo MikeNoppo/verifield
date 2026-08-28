@@ -85,7 +85,7 @@ adalah kejadian jarang.
 | Laporan terlambat (B-07) | Ditolak setelah status final, dicatat, alert koordinator dibuat |
 | Concurrency (B-09) | Versi basi → 409 beserta penjelasannya |
 | Pembatalan (B-05) | `In Progress` menjadi permintaan; koordinator menolak → pekerjaan lanjut |
-| Pembatalan gugur saat pekerjaan selesai lebih dulu (B-10) | Klien mengajukan batal, inspektor menyelesaikan → status tetap `Completed`, permintaan gugur, koordinator diberi tanda; menyetujuinya → 409 |
+| Pekerjaan selesai mendahului keputusan pembatalan (B-10) | Klien mengajukan batal, inspektor menyelesaikan → status tetap `Completed`, permintaan berpindah menunggu penyelesaian; menyetujui pembatalan → 409; koordinator mencatat hasil + catatan → masuk riwayat |
 | Kerahasiaan antar klien (A-03) | Order perusahaan lain → 404, bukan 403 |
 | Real-time lintas instance | Klien di port 8080 menerima perubahan yang dikirim lewat port 8081 |
 | Pemulihan event terlewat | Menyambung ulang dengan kursor `seq` → perubahan yang terlewat dikirim ulang |
@@ -142,6 +142,7 @@ yang diisi dari `GET /demo/actors`.
 | POST | `/orders/{id}/assign` | Tugaskan inspektor (koordinator) — butuh `expected_version` |
 | POST | `/orders/{id}/cancel` | Batalkan atau ajukan pembatalan |
 | POST | `/orders/{id}/cancellations/{reqId}/decide` | Putuskan permintaan pembatalan |
+| POST | `/orders/{id}/cancellations/{reqId}/settle` | Putuskan penyelesaian komersial saat pekerjaan terlanjur selesai |
 | POST | `/orders/{id}/corrections` | Koreksi status (koordinator) — wajib beralasan |
 | GET | `/stream?last_event_id=` | **SSE** — perubahan order, disaring menurut peran |
 | GET · POST | `/users`, `/users/{id}` | CRUD user |
