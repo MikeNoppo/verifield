@@ -1,69 +1,106 @@
-import Image from "next/image";
+import Link from "next/link"
+import { ArrowRightIcon, BriefcaseIcon, HardHatIcon, LayoutDashboardIcon } from "lucide-react"
+
+import { ThemeToggle } from "@/components/verifield/theme-toggle"
+import { Badge } from "@/components/ui/badge"
+import { SCENARIO_INDEX } from "@/lib/mock/seed"
+
+const PERSONA = [
+  {
+    href: "/klien",
+    label: "Klien",
+    Icon: BriefcaseIcon,
+    kondisi: "Komputer kantor, koneksi stabil, membuka sesekali",
+    butuh:
+      "Tahu inspektor sudah berangkat atau belum, tanpa menelepon siapa pun. Hanya melihat order milik perusahaannya.",
+  },
+  {
+    href: "/ops",
+    label: "Koordinator",
+    Icon: LayoutDashboardIcon,
+    kondisi: "Satu layar dipantau sepanjang hari",
+    butuh:
+      "Tahu secepat mungkin order mana yang bermasalah, tanpa memeriksa satu per satu. Menugaskan, mengoreksi, memutuskan pembatalan.",
+  },
+  {
+    href: "/lapangan",
+    label: "Inspektor",
+    Icon: HardHatIcon,
+    kondisi: "Ponsel, sambil berdiri, sarung tangan, sinyal tidak dapat diandalkan",
+    butuh:
+      "Memperbarui status dengan satu ketukan dan yakin laporannya tidak hilang meski sinyal sedang tidak ada.",
+  },
+] as const
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-10">
+      <header className="mb-10 flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-xl font-semibold tracking-tight">Verifield</h1>
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+            Pelacakan job order inspeksi lapangan untuk PT Sentra Inspeksi Nusantara. Status
+            pekerjaan terlihat langsung oleh klien tanpa perantara manusia, dan inspektor punya
+            cara memperbarui status yang tetap bekerja di area bersinyal buruk.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <ThemeToggle />
+      </header>
+
+      <section className="mb-10">
+        <h2 className="mb-3 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Masuk sebagai
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {PERSONA.map(({ href, label, Icon, kondisi, butuh }) => (
+            <Link
+              key={href}
+              href={href}
+              className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/25 hover:bg-muted/40"
+            >
+              <span className="flex items-center gap-2">
+                <Icon className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{label}</span>
+                <ArrowRightIcon className="ml-auto size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </span>
+              <span className="text-[11px] leading-relaxed text-muted-foreground">{kondisi}</span>
+              <span className="text-xs leading-relaxed text-foreground/80">{butuh}</span>
+            </Link>
+          ))}
         </div>
-      </main>
+      </section>
+
+      <section>
+        <h2 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Skenario tidak ideal
+        </h2>
+        <p className="mb-3 max-w-xl text-xs leading-relaxed text-muted-foreground">
+          Setiap skenario di bagian 12 dokumen bisnis diwakili satu order nyata pada data contoh,
+          bukan sekadar diceritakan. Klik untuk melihatnya langsung.
+        </p>
+
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {SCENARIO_INDEX.map((s) => (
+            <li key={s.ref}>
+              <Link
+                href={`/${s.role}/order/${s.ref.toLowerCase()}`}
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+              >
+                <span className="tabular font-mono text-xs text-muted-foreground">{s.ref}</span>
+                <span className="min-w-0 flex-1 text-sm">{s.title}</span>
+                <Badge variant="outline" className="shrink-0 font-mono text-[10px]">
+                  {s.decision}
+                </Badge>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <footer className="mt-10 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
+        Autentikasi berada di luar cakupan, sehingga peran diwakili pemilih peran di kanan atas —
+        bukan login. Data bersifat contoh dan dihitung relatif terhadap satu titik waktu tetap.
+      </footer>
     </div>
-  );
+  )
 }
