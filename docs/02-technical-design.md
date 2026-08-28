@@ -360,7 +360,7 @@ berasal dari database, bukan dari klaim frontend.
 | Aturan | Rujukan |
 |---|---|
 | Klien hanya melihat order perusahaannya. Order perusahaan lain dijawab **404**, bukan 403 — membedakan keduanya membocorkan keberadaan order milik klien lain | A-03 |
-| Inspektor hanya boleh memperbarui order yang ditugaskan kepadanya | — |
+| Inspektor hanya membaca dan memperbarui order yang ditugaskan kepadanya; order lain dijawab 404 dan saringan `inspector_id` dipaksa server | — |
 | Inspektor tidak berwenang membatalkan, hanya melaporkan kendala | B-04 |
 | CS hanya membaca | Bagian 5.4 |
 | Koreksi status hanya oleh koordinator, wajib beralasan | B-06 |
