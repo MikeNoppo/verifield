@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Push berturut-turut pada branch yang sama membatalkan run sebelumnya —
+# tidak ada gunanya menunggu hasil untuk commit yang sudah tertimpa.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # gofmt -l mencetak berkas yang belum rapi dan tetap keluar dengan status
+      # 0, jadi keluarannya yang harus diperiksa — bukan exit code-nya.
+      - name: Periksa format
+        run: |
+          offenders=$(gofmt -l .)
+          if [ -n "$offenders" ]; then
+            echo "Berkas berikut belum diformat:"
+            echo "$offenders"
+            exit 1
+          fi
+
+      - name: Analisis statis
+        run: go vet ./...
+
+      # Kedua suite berjalan tanpa database: modul diuji lewat stub, dan berkas
+      # migrasi diperiksa dari isinya.
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build
+        run: go build ./...
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+
+      - name: Pasang dependency
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Periksa tipe
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test
+
+      - name: Build
+        run: bun run build
+
+  images:
+    # Image hanya dibangun setelah kedua sisi lolos — tidak ada gunanya
+    # mengemas kode yang belum tentu benar.
+    needs: [backend, frontend]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Belum di-push ke registry: kredensialnya milik lingkungan yang belum ada.
+      # Yang dijaga di sini adalah Dockerfile-nya tetap bisa dibangun.
+      - name: Build image ${{ matrix.component }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.component }}
+          push: false
+          tags: verifield-${{ matrix.component }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,scope=${{ matrix.component }},mode=max

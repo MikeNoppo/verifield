@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verifield-backend
+  labels:
+    app: verifield-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: verifield-backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: verifield-backend
+    spec:
+      # Stream SSE tetap terbuka berjam-jam. Saat rolling update, pod lama perlu
+      # waktu menutup koneksinya dengan rapi; klien lalu menyambung ulang dan
+      # memulihkan perubahan yang terlewat lewat kursor seq.
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: api
+          image: ghcr.io/mikenoppo/verifield-backend:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: verifield-config
+            - secretRef:
+                name: verifield-secret
+          # Liveness hanya memastikan proses tidak menggantung. Ia sengaja TIDAK
+          # menyentuh database: database yang sedang bermasalah akan membuat
+          # seluruh pod dibunuh berulang kali, memperparah keadaan.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          # Readiness yang menentukan pod menerima lalu lintas atau tidak.
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verifield-backend
+spec:
+  selector:
+    app: verifield-backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

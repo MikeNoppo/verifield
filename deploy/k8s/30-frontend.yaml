@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verifield-frontend
+  labels:
+    app: verifield-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: verifield-frontend
+  template:
+    metadata:
+      labels:
+        app: verifield-frontend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: web
+          # WARNING: alamat backend terpanggang saat image dibuild, bukan dibaca
+          # dari ConfigMap — ia dipakai browser, bukan server. Mengubah
+          # lingkungan berarti membuild ulang image, bukan mengganti env.
+          image: ghcr.io/mikenoppo/verifield-frontend:latest
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: verifield-frontend
+spec:
+  selector:
+    app: verifield-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

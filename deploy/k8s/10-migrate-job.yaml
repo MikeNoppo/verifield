@@ -1,0 +1,27 @@
+# Migrasi dijalankan sebagai Job, bukan initContainer.
+#
+# initContainer akan menjalankan migrasi sekali per pod, sehingga tiga replika
+# berarti tiga eksekusi bersamaan yang berebut tabel versi goose. Job memastikan
+# migrasi berjalan tepat satu kali per rilis.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: verifield-migrate
+  annotations:
+    # Dipakai perkakas rilis (Argo CD / Helm hook) agar Job berjalan sebelum
+    # Deployment diperbarui.
+    argocd.argoproj.io/hook: PreSync
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/mikenoppo/verifield-backend:latest
+          command: ["migrate", "up"]
+          envFrom:
+            - configMapRef:
+                name: verifield-config
+            - secretRef:
+                name: verifield-secret
