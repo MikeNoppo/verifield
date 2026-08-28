@@ -3,7 +3,8 @@ import "server-only"
 import { cache } from "react"
 
 import { listActors } from "@/lib/api/orders"
-import { PERSONA_ROLE, type Actor, type Persona } from "@/lib/domain/types"
+import { resolveActor } from "@/lib/actor/resolve"
+import type { Actor, Persona } from "@/lib/domain/types"
 
 /** Autentikasi berada di luar cakupan, sehingga identitas diambil dari daftar
     aktor contoh yang disediakan backend. Peran ditentukan segmen URL — bukan
@@ -15,14 +16,11 @@ import { PERSONA_ROLE, type Actor, type Persona } from "@/lib/domain/types"
  *  bawahnya tidak memanggil backend berulang kali. */
 const actors = cache(listActors)
 
-export async function actorFor(persona: Persona): Promise<Actor> {
-  const role = PERSONA_ROLE[persona]
-  const found = (await actors()).find((a) => a.role === role)
+/** Seluruh aktor demo, untuk pemilih peran → aktor di kanan atas. */
+export function demoActors(): Promise<Actor[]> {
+  return actors()
+}
 
-  if (!found) {
-    throw new Error(
-      `Tidak ada aktor contoh berperan "${role}". Jalankan seeder backend terlebih dahulu.`,
-    )
-  }
-  return found
+export async function actorFor(persona: Persona, actorId?: string): Promise<Actor> {
+  return resolveActor(await actors(), persona, actorId || null)
 }

@@ -10,6 +10,7 @@ import { CancelDialog } from "@/components/verifield/cancel-dialog"
 import { useActor } from "@/components/verifield/actor-provider"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveEvents, useLiveOrder } from "@/lib/live/hooks"
 import { cancelAuthority } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
@@ -26,6 +27,7 @@ function Baris({ label, children }: { label: string; children: React.ReactNode }
 
 export function KlienOrderDetail({ order: initial }: { order: JobOrder }) {
   const actor = useActor()
+  const href = useActorHref()
   const order = useLiveOrder(initial)
   const events = useLiveEvents(order, actor.id)
   const auth = cancelAuthority("client", order.status)
@@ -33,7 +35,7 @@ export function KlienOrderDetail({ order: initial }: { order: JobOrder }) {
   return (
     <>
       <Link
-        href="/klien"
+        href={href("/klien")}
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />

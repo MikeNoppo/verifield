@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import type { Route } from "next"
 
 import { StatusBadge } from "@/components/verifield/status-badge"
 import { StatusRail } from "@/components/verifield/status-rail"
@@ -19,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
+import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveList } from "@/lib/live/hooks"
 import {
   attentionCounts,
@@ -72,6 +72,7 @@ export function OpsOrderList({
 }) {
   const semua = useLiveList(initial)
   const now = new Date()
+  const href = useActorHref()
   const counts = attentionCounts(semua, now)
   const orders = semua.filter((o) => cocok(o, attention, now))
 
@@ -93,7 +94,7 @@ export function OpsOrderList({
             label={item.label}
             hint={item.hint}
             count={counts[item.key]}
-            href={(attention === item.key ? "/ops" : `/ops?a=${item.key}`) as Route}
+            href={href(attention === item.key ? "/ops" : `/ops?a=${item.key}`)}
             active={attention === item.key}
           />
         ))}
@@ -108,7 +109,7 @@ export function OpsOrderList({
           <span className="text-muted-foreground">
             Disaring: {ATTENTION.find((x) => x.key === attention)?.label}
           </span>
-          <Link href="/ops" className="font-medium underline underline-offset-2">
+          <Link href={href("/ops")} className="font-medium underline underline-offset-2">
             Hapus saringan
           </Link>
         </div>
@@ -151,7 +152,7 @@ export function OpsOrderList({
                         <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-attention" />
                       ) : null}
                       <Link
-                        href={`/ops/order/${o.id}`}
+                        href={href(`/ops/order/${o.id}`)}
                         prefetch={false}
                         className="tabular font-mono text-xs font-medium hover:underline"
                       >
@@ -195,7 +196,7 @@ export function OpsOrderList({
                         <AssignDialog order={o} inspectors={inspectors} compact />
                       ) : o.cancellationRequested ? (
                         <Link
-                          href={`/ops/order/${o.id}`}
+                          href={href(`/ops/order/${o.id}`)}
                           prefetch={false}
                           className="text-xs font-medium text-attention hover:underline"
                         >

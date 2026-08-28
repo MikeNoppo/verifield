@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useActorHref } from "@/lib/actor/hooks"
 import { useActor } from "@/components/verifield/actor-provider"
 import { cn } from "@/lib/utils"
 import { ApiError } from "@/lib/api/client"
@@ -47,6 +48,7 @@ function dalamJamKerja(d: Date): boolean {
 
 export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
   const actor = useActor()
+  const href = useActorHref()
   const router = useRouter()
 
   const [jenis, setJenis] = React.useState(types[0]?.id ?? "")
@@ -112,7 +114,7 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
           Koordinator akan menugaskan inspektor, dan statusnya berubah di layar Anda tanpa
           perlu memuat ulang halaman.
         </p>
-        <Link href={`/klien/order/${hasil.id}`} className={cn(buttonVariants(), "mt-2")}>
+        <Link href={href(`/klien/order/${hasil.id}`)} className={cn(buttonVariants(), "mt-2")}>
           Lihat order ini
         </Link>
       </Card>
@@ -122,7 +124,7 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
   return (
     <div className="mx-auto max-w-lg">
       <Link
-        href="/klien"
+        href={href("/klien")}
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />
@@ -213,7 +215,7 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
           ) : null}
 
           <div className="mt-6 flex justify-end gap-2">
-            <Link href="/klien" className={buttonVariants({ variant: "secondary" })}>
+            <Link href={href("/klien")} className={buttonVariants({ variant: "secondary" })}>
               Batal
             </Link>
             <Button type="submit" disabled={kirim || !jenis}>

@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveList } from "@/lib/live/hooks"
 import { inBucket, type Bucket } from "@/lib/domain/summary"
 import type { JobOrder } from "@/lib/domain/types"
@@ -30,6 +31,7 @@ export function KlienOrderList({
 }) {
   const semua = useLiveList(initial)
   const orders = semua.filter((o) => inBucket(o, bucket))
+  const href = useActorHref()
   const now = new Date()
 
   if (orders.length === 0) {
@@ -64,7 +66,7 @@ export function KlienOrderList({
             <TableRow key={o.id} className="h-12">
               <TableCell className="align-middle">
                 <Link
-                  href={`/klien/order/${o.id}`}
+                  href={href(`/klien/order/${o.id}`)}
                   prefetch={false}
                   className="tabular font-mono text-xs font-medium hover:underline"
                 >
@@ -74,7 +76,7 @@ export function KlienOrderList({
 
               <TableCell className="align-middle">
                 <Link
-                  href={`/klien/order/${o.id}`}
+                  href={href(`/klien/order/${o.id}`)}
                   prefetch={false}
                   className="flex flex-col gap-0.5"
                 >

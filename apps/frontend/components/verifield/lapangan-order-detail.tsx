@@ -8,17 +8,19 @@ import { StatusStepper } from "@/components/verifield/status-rail"
 import { NextAction, SyncQueueBanner } from "@/components/verifield/next-action"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveOrder } from "@/lib/live/hooks"
 import type { JobOrder } from "@/lib/domain/types"
 import { tanggalLengkap } from "@/lib/format"
 
 export function LapanganOrderDetail({ order: initial }: { order: JobOrder }) {
   const order = useLiveOrder(initial)
+  const href = useActorHref()
 
   return (
     <>
       <Link
-        href="/lapangan"
+        href={href("/lapangan")}
         className="mb-4 inline-flex min-h-8 items-center gap-1.5 text-xs text-muted-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />

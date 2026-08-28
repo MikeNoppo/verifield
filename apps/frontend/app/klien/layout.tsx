@@ -1,22 +1,22 @@
 import { AppShell } from "@/components/verifield/app-shell"
-import { ActorProvider } from "@/components/verifield/actor-provider"
+import { ActorScope } from "@/components/verifield/actor-provider"
 import { ConnectionIndicator } from "@/components/verifield/connection-indicator"
 import { LiveProvider } from "@/components/verifield/live-provider"
-import { actorFor } from "@/lib/session"
+import { demoActors } from "@/lib/session"
 
 export default async function KlienLayout({ children }: LayoutProps<"/klien">) {
-  const actor = await actorFor("klien")
+  const actors = await demoActors()
 
   return (
-    <ActorProvider actor={actor}>
-      <LiveProvider actorId={actor.id}>
+    <ActorScope persona="klien" actors={actors}>
+      <LiveProvider>
         <AppShell
-          identity={actor.companyName ?? actor.name}
+          persona="klien"
           right={<ConnectionIndicator className="hidden md:inline-flex" />}
         >
           {children}
         </AppShell>
       </LiveProvider>
-    </ActorProvider>
+    </ActorScope>
   )
 }

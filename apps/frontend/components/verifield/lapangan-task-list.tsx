@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/verifield/status-badge"
 import { StatusRail } from "@/components/verifield/status-rail"
 import { SyncQueueBanner } from "@/components/verifield/next-action"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveList } from "@/lib/live/hooks"
 import { inspectorActions, isTerminal } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
@@ -14,6 +15,7 @@ import { tanggalJam } from "@/lib/format"
 
 export function LapanganTaskList({ orders: initial }: { orders: JobOrder[] }) {
   const semua = useLiveList(initial)
+  const href = useActorHref()
   // Order yang baru saja selesai hilang dari daftar tugas begitu laporannya
   // terkirim — tanpa memuat ulang halaman.
   const tasks = semua.filter((o) => !isTerminal(o.status))
@@ -40,7 +42,7 @@ export function LapanganTaskList({ orders: initial }: { orders: JobOrder[] }) {
             return (
               <li key={o.id}>
                 <Link
-                  href={`/lapangan/order/${o.id}`}
+                  href={href(`/lapangan/order/${o.id}`)}
                   prefetch={false}
                   // Target sentuh besar: dipakai sambil berdiri, sering
                   // mengenakan sarung tangan.

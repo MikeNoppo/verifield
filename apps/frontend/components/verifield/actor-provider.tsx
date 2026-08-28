@@ -1,31 +1,74 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 
-import type { Actor } from "@/lib/domain/types"
+import { findActor } from "@/lib/actor/resolve"
+import { PERSONA_ROLE, type Actor, type Persona } from "@/lib/domain/types"
 
-const ActorContext = React.createContext<Actor | null>(null)
+type Scope = {
+  actor: Actor
+  /** Seluruh aktor demo, untuk pemilih aktor di kanan atas. Dititipkan di sini
+      supaya kerangka layar tidak perlu meneruskannya sebagai prop, yang berarti
+      daftar yang sama terkirim dua kali pada setiap muatan halaman. */
+  actors: Actor[]
+}
 
-/** Identitas ditentukan di server lalu diturunkan ke komponen klien lewat
-    context, bukan diambil ulang di browser.
+const ActorContext = React.createContext<Scope | null>(null)
+
+/** Aktor diselesaikan di browser, bukan di layout server.
  *
- *  Alasannya: setiap mutasi harus membawa header identitas, dan mengalirkannya
- *  sebagai prop melewati setiap dialog akan mengotori seluruh pohon komponen
- *  hanya demi satu nilai yang tidak pernah berubah selama satu layar hidup. */
-export function ActorProvider({
-  actor,
+ *  Layout App Router tidak menerima searchParams sama sekali — hanya params dan
+ *  children — sehingga aktor yang dipilih lewat ?actor= tidak pernah sampai ke
+ *  sana. Akibatnya kerangka layar tertinggal pada aktor baku peran sementara
+ *  isi halaman sudah berpindah, dan pemilih aktor yang terkontrol memantul
+ *  kembali ke nilai lama setiap kali dipilih.
+ *
+ *  Menyelesaikannya di klien juga menjaga LiveProvider tetap terpasang di
+ *  layout: stream hanya tersambung ulang saat aktornya benar-benar berganti,
+ *  bukan setiap kali berpindah halaman. */
+export function ActorScope({
+  persona,
+  actors,
   children,
 }: {
-  actor: Actor
+  persona: Persona
+  actors: Actor[]
   children: React.ReactNode
 }) {
-  return <ActorContext.Provider value={actor}>{children}</ActorContext.Provider>
+  const actorId = useSearchParams().get("actor")
+  const actor = React.useMemo(
+    () => findActor(actors, persona, actorId),
+    [actors, persona, actorId],
+  )
+  const scope = React.useMemo(() => (actor ? { actor, actors } : null), [actor, actors])
+
+  if (!scope) return <SeederKosong role={PERSONA_ROLE[persona]} />
+
+  return <ActorContext.Provider value={scope}>{children}</ActorContext.Provider>
+}
+
+function SeederKosong({ role }: { role: string }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-2 p-6 text-center">
+      <p className="text-sm font-medium">Tidak ada aktor contoh berperan &ldquo;{role}&rdquo;</p>
+      <p className="text-xs text-muted-foreground">Jalankan seeder backend terlebih dahulu.</p>
+    </div>
+  )
+}
+
+function useScope(): Scope {
+  const scope = React.useContext(ActorContext)
+  if (!scope) {
+    throw new Error("useActor harus dipakai di dalam ActorScope")
+  }
+  return scope
 }
 
 export function useActor(): Actor {
-  const actor = React.useContext(ActorContext)
-  if (!actor) {
-    throw new Error("useActor harus dipakai di dalam ActorProvider")
-  }
-  return actor
+  return useScope().actor
+}
+
+export function useActors(): Actor[] {
+  return useScope().actors
 }

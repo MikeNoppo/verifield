@@ -4,15 +4,18 @@ import { OpsOrderDetail } from "@/components/verifield/ops-order-detail"
 import { ApiError } from "@/lib/api/client"
 import { getOrder, listInspectors } from "@/lib/api/orders"
 import { actorFor } from "@/lib/session"
+import { first } from "@/lib/actor/link"
 import type { Inspector, JobOrder } from "@/lib/domain/types"
 
 export default async function OpsOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { id } = await params
-  const actor = await actorFor("ops")
+  const actor = await actorFor("ops", first((await searchParams).actor))
 
   let order: JobOrder
   let inspectors: Inspector[]

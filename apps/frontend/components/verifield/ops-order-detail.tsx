@@ -12,6 +12,7 @@ import { CancellationReview, CorrectionDialog } from "@/components/verifield/ops
 import { useActor } from "@/components/verifield/actor-provider"
 import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveEvents, useLiveOrder } from "@/lib/live/hooks"
 import { cancelAuthority, hasLateRejected, isStale, isTerminal, needsAssignment } from "@/lib/domain/status"
 import type { Inspector, JobOrder } from "@/lib/domain/types"
@@ -34,6 +35,7 @@ export function OpsOrderDetail({
   inspectors: Inspector[]
 }) {
   const actor = useActor()
+  const href = useActorHref()
   const order = useLiveOrder(initial)
   const events = useLiveEvents(order, actor.id)
 
@@ -45,7 +47,7 @@ export function OpsOrderDetail({
   return (
     <>
       <Link
-        href="/ops"
+        href={href("/ops")}
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-3.5" />

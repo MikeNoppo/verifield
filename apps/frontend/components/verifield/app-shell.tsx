@@ -1,7 +1,9 @@
 import Link from "next/link"
 
 import { cn } from "@/lib/utils"
+import type { Persona } from "@/lib/domain/types"
 import { RoleSwitcher } from "./role-switcher"
+import { ShellIdentity } from "./shell-identity"
 import { ThemeToggle } from "./theme-toggle"
 
 const WIDTH = {
@@ -12,14 +14,12 @@ const WIDTH = {
 
 export function AppShell({
   width = "normal",
-  identity,
+  persona,
   right,
   children,
 }: {
   width?: keyof typeof WIDTH
-  /** Siapa yang sedang memakai layar ini — nama perusahaan klien, nama
-      koordinator, atau kode inspektor. Tidak ada autentikasi di PoC. */
-  identity: string
+  persona: Persona
   right?: React.ReactNode
   children: React.ReactNode
 }) {
@@ -29,14 +29,12 @@ export function AppShell({
         <div className={cn("mx-auto flex h-14 items-center gap-4 px-4 sm:px-6", WIDTH[width])}>
           <Link href="/" className="flex shrink-0 items-baseline gap-2">
             <span className="text-sm font-semibold tracking-tight">Verifield</span>
-            <span className="hidden text-[11px] text-muted-foreground sm:inline">
-              {identity}
-            </span>
+            <ShellIdentity persona={persona} />
           </Link>
 
           <div className="ml-auto flex items-center gap-3">
             {right}
-            <RoleSwitcher />
+            <RoleSwitcher persona={persona} />
             <ThemeToggle />
           </div>
         </div>

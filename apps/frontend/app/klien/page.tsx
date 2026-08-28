@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { listOrders } from "@/lib/api/orders"
 import { actorFor } from "@/lib/session"
+import { first, withActor } from "@/lib/actor/link"
 import type { Bucket } from "@/lib/domain/summary"
 
 const FILTER = [
@@ -16,21 +17,19 @@ const FILTER = [
   { key: "bermasalah", label: "Bermasalah" },
 ] as const
 
-function first(v: string | string[] | undefined): string {
-  return Array.isArray(v) ? (v[0] ?? "") : (v ?? "")
-}
-
 export default async function KlienOrders({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const f = first((await searchParams).f)
+  const sp = await searchParams
+  const f = first(sp.f)
   const bucket = (["berjalan", "selesai", "bermasalah"] as const).find((b) => b === f) as
     | Bucket
     | undefined
 
-  const actor = await actorFor("klien")
+  const actor = await actorFor("klien", first(sp.actor))
+  const href = (to: string) => withActor(to, actor.id)
   // Backend memaksakan saringan perusahaan sendiri untuk peran klien, apa pun
   // yang dikirim di query — kerahasiaan komersial antar klien tidak bergantung
   // pada perilaku halaman ini (asumsi A-03).
@@ -46,7 +45,7 @@ export default async function KlienOrders({
           </>
         }
         action={
-          <Link href="/klien/permintaan-baru" className={buttonVariants({ size: "sm" })}>
+          <Link href={href("/klien/permintaan-baru")} className={buttonVariants({ size: "sm" })}>
             <PlusIcon data-icon="inline-start" />
             Permintaan Baru
           </Link>
@@ -57,7 +56,7 @@ export default async function KlienOrders({
         {FILTER.map((item) => (
           <Link
             key={item.key}
-            href={item.key ? `/klien?f=${item.key}` : "/klien"}
+            href={href(item.key ? `/klien?f=${item.key}` : "/klien")}
             className={cn(
               "inline-flex h-7 items-center rounded-4xl border px-3 text-xs font-medium transition-colors",
               f === item.key

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 
+import { useActor } from "@/components/verifield/actor-provider"
 import { connect, markOffline } from "@/lib/live/store"
 
 /** Membuka satu stream perubahan untuk seluruh layar.
@@ -10,13 +11,8 @@ import { connect, markOffline } from "@/lib/live/store"
  *  Dipasang di layout, bukan di tiap halaman, supaya berpindah antar halaman
  *  tidak memutus lalu membuka koneksi berulang kali — setiap pembukaan ulang
  *  berarti satu putaran replay yang sebenarnya tidak perlu. */
-export function LiveProvider({
-  actorId,
-  children,
-}: {
-  actorId: string
-  children: React.ReactNode
-}) {
+export function LiveProvider({ children }: { children: React.ReactNode }) {
+  const actorId = useActor().id
   const router = useRouter()
 
   React.useEffect(() => {
