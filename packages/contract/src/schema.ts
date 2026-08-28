@@ -1089,6 +1089,14 @@ export interface components {
             location_name?: string;
             object_description?: string;
             /**
+             * @description Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang
+             *     harus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut
+             *     kompensasi inspektor, permintaan pembatalan yang gugur menyangkut
+             *     penyelesaian komersial dengan klien.
+             * @enum {string}
+             */
+            open_alert_type?: "late_update_rejected" | "cancellation_obsolete";
+            /**
              * @description Hanya terisi pada endpoint detail. Koordinator butuh id-nya untuk
              *     memutuskan, dan alasannya untuk memutuskan dengan benar.
              */

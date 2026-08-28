@@ -1427,6 +1427,14 @@
                 "object_description": {
                     "type": "string"
                 },
+                "open_alert_type": {
+                    "description": "Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang\nharus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut\nkompensasi inspektor, permintaan pembatalan yang gugur menyangkut\npenyelesaian komersial dengan klien.",
+                    "type": "string",
+                    "enum": [
+                        "late_update_rejected",
+                        "cancellation_obsolete"
+                    ]
+                },
                 "pending_cancellation": {
                     "description": "Hanya terisi pada endpoint detail. Koordinator butuh id-nya untuk\nmemutuskan, dan alasannya untuk memutuskan dengan benar.",
                     "allOf": [

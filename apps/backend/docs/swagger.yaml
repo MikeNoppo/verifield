@@ -277,6 +277,16 @@ definitions:
         type: string
       object_description:
         type: string
+      open_alert_type:
+        description: |-
+          Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang
+          harus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut
+          kompensasi inspektor, permintaan pembatalan yang gugur menyangkut
+          penyelesaian komersial dengan klien.
+        enum:
+        - late_update_rejected
+        - cancellation_obsolete
+        type: string
       pending_cancellation:
         allOf:
         - $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.PendingCancellation'

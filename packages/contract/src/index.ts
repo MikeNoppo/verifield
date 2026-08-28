@@ -39,6 +39,10 @@ export type RejectionReason = NonNullable<
   Schemas["verifield-be_internal_modules_joborder_dto.JobStatusEventResponse"]["rejection_reason"]
 >
 
+export type OpenAlertType = NonNullable<
+  Schemas["verifield-be_internal_modules_joborder_dto.JobOrderResponse"]["open_alert_type"]
+>
+
 export type CancelFee = NonNullable<
   Schemas["verifield-be_internal_modules_joborder_dto.CancelResult"]["fee"]
 >
@@ -63,11 +67,14 @@ export type Meta = Required<Schemas["verifield-be_internal_common_response.Meta"
 export type JobOrderDTO = Required<
   Omit<
     Schemas["verifield-be_internal_modules_joborder_dto.JobOrderResponse"],
-    "events" | "pending_cancellation"
+    "events" | "pending_cancellation" | "open_alert_type"
   >
 > & {
   events?: StatusEventDTO[]
   pending_cancellation?: PendingCancellationDTO
+  /** Selalu dikirim, tetapi kosong selama tidak ada yang perlu ditindaklanjuti.
+      Swagger 2.0 tidak mengenal nullable, jadi bentuk ini ditulis tangan. */
+  open_alert_type: OpenAlertType | null
 }
 
 /** Nilai kosong berarti event pertama (tidak punya status asal), event buatan

@@ -205,6 +205,7 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 		Seq                   int64
 		CancellationRequested bool
 		HasOpenAlert          bool
+		OpenAlertType         *string
 		ExitStatus            *string
 	}
 
@@ -216,6 +217,9 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 		                WHERE c.job_order_id = jo.id AND c.status = ?) AS cancellation_requested,
 		       EXISTS (SELECT 1 FROM job_order_alerts a
 		                WHERE a.job_order_id = jo.id AND a.resolved_at IS NULL) AS has_open_alert,
+		       (SELECT a.type FROM job_order_alerts a
+		         WHERE a.job_order_id = jo.id AND a.resolved_at IS NULL
+		         ORDER BY a.created_at DESC LIMIT 1) AS open_alert_type,
 		       (SELECT e.to_status FROM job_status_events e
 		         WHERE e.job_order_id = jo.id AND e.accepted = true
 		           AND e.to_status NOT IN ?
@@ -232,6 +236,7 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 			Seq:                   row.Seq,
 			CancellationRequested: row.CancellationRequested,
 			HasOpenAlert:          row.HasOpenAlert,
+			OpenAlertType:         row.OpenAlertType,
 			ExitStatus:            row.ExitStatus,
 		}
 	}

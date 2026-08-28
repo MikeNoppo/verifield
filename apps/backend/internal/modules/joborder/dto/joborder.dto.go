@@ -135,6 +135,12 @@ type JobOrderResponse struct {
 	CancellationRequested bool `json:"cancellation_requested"`
 	HasOpenAlert          bool `json:"has_open_alert"`
 
+	// Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang
+	// harus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut
+	// kompensasi inspektor, permintaan pembatalan yang gugur menyangkut
+	// penyelesaian komersial dengan klien.
+	OpenAlertType *string `json:"open_alert_type" enums:"late_update_rejected,cancellation_obsolete"`
+
 	// Tahap terjauh yang sempat dicapai sebelum order berakhir. Untuk order yang
 	// masih berjalan nilainya sama dengan current_status; untuk yang dibatalkan
 	// atau gagal, inilah yang menjawab "sejauh mana sempat berjalan".
@@ -198,6 +204,7 @@ func ToJobOrderResponse(o *schema.JobOrder, derived Derived) JobOrderResponse {
 		Seq:                   derived.Seq,
 		CancellationRequested: derived.CancellationRequested,
 		HasOpenAlert:          derived.HasOpenAlert,
+		OpenAlertType:         derived.OpenAlertType,
 		ExitStatus:            derived.ExitStatus,
 		PendingCancellation:   derived.PendingCancellation,
 		CreatedAt:             o.CreatedAt,
@@ -233,6 +240,7 @@ type Derived struct {
 	Seq                   int64
 	CancellationRequested bool
 	HasOpenAlert          bool
+	OpenAlertType         *string
 	ExitStatus            *string
 	PendingCancellation   *PendingCancellation
 }
