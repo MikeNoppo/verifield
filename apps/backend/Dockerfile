@@ -31,6 +31,8 @@ RUN apk add --no-cache wget ca-certificates \
  && adduser -D -u 10001 verifield
 
 COPY --from=build /out/api /out/migrate /out/seeder /usr/local/bin/
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER verifield
 EXPOSE 8080
@@ -38,4 +40,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1
 
+# Default tetap `api` agar manifest Kubernetes tidak terpengaruh; docker-compose
+# mengganti entrypoint-nya ke skrip di atas.
 ENTRYPOINT ["api"]

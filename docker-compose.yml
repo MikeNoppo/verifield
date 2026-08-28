@@ -1,15 +1,15 @@
 # Seluruh stack Verifield:
 #
-#   bun run stack:up      seluruh tumpukan, lalu buka http://localhost:3000
-#   bun run db:up         database saja, untuk pengembangan dengan hot reload
+#   docker compose up        seluruh tumpukan, lalu buka http://localhost:3000
+#   docker compose up postgres   database saja, untuk pengembangan dengan hot reload
 #
-# Database berada di luar profil `full` dengan sengaja: alur pengembangan
-# sehari-hari menjalankan Postgres di Docker dan kedua aplikasi langsung di
-# mesin, supaya hot reload tetap bekerja.
+# Migrasi dan seeding berjalan di dalam container backend lewat
+# docker-entrypoint.sh (keduanya idempoten), sehingga stack hanya terdiri dari
+# tiga container: postgres, backend, frontend.
 #
-# Urutannya dirantai lewat kondisi kesehatan, bukan lewat jeda waktu: migrasi
-# menunggu database benar-benar siap menerima query, seeder menunggu migrasi
-# selesai, dan aplikasi menunggu datanya ada.
+# Urutannya dirantai lewat kondisi kesehatan, bukan lewat jeda waktu: backend
+# menunggu database benar-benar siap menerima query, dan frontend menunggu API
+# menyala.
 
 name: verifield
 
@@ -42,37 +42,10 @@ services:
       timeout: 5s
       retries: 12
 
-  # Menerapkan migrasi lalu berhenti. Migrasi ter-embed di dalam binary, jadi
-  # container ini tidak perlu membawa folder migrations/ maupun Atlas.
-  migrate:
-    profiles: [full]
-    build:
-      context: ./apps/backend
-    environment: *db-env
-    entrypoint: ["migrate", "up"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  # Mengisi data contoh lalu berhenti. Idempoten, jadi aman dijalankan ulang.
-  seed:
-    profiles: [full]
-    build:
-      context: ./apps/backend
-    environment:
-      <<: *db-env
-      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrator}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@verifield.id}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-verifield123}
-    entrypoint: ["seeder"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    restart: "no"
-
+  # Menerapkan migrasi, mengisi data contoh, lalu menjalankan API — lihat
+  # apps/backend/docker-entrypoint.sh. Kedua langkah idempoten, jadi aman
+  # dijalankan ulang setiap container ini dinyalakan.
   backend:
-    profiles: [full]
     build:
       context: ./apps/backend
     environment:
@@ -83,17 +56,20 @@ services:
       # Browser mengakses backend langsung untuk stream SSE, sehingga origin
       # frontend harus diizinkan secara eksplisit.
       HTTP_ALLOWED_ORIGINS: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrator}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@verifield.id}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-verifield123}
+    entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
     ports:
       - "8080:8080"
     depends_on:
-      seed:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     # Koneksi SSE ditutup rapi saat container dihentikan; klien lalu menyambung
     # ulang dan memulihkan diri lewat kursor.
     stop_grace_period: 30s
 
   frontend:
-    profiles: [full]
     build:
       # Konteksnya akar repo: lockfile dan paket kontrak berada di luar
       # apps/frontend, dan keduanya dibutuhkan saat install.
