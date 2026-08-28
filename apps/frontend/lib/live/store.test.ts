@@ -24,6 +24,7 @@ function order(id: string, seq: number, status: JobOrder["status"] = "on_site"):
     seq,
     cancellationRequested: false,
     hasOpenAlert: false,
+    openAlertType: null,
     pendingCancellation: null,
     events: [],
     createdAt: "2026-08-28T00:00:00Z",

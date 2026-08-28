@@ -26,7 +26,7 @@ import {
   statusDistribution,
   type AttentionKey,
 } from "@/lib/domain/summary"
-import { hasLateRejected, isStale, needsAssignment } from "@/lib/domain/status"
+import { hasOpenAlert, isStale, needsAssignment } from "@/lib/domain/status"
 import type { Inspector, JobOrder } from "@/lib/domain/types"
 import { sejak } from "@/lib/format"
 
@@ -44,7 +44,7 @@ const ATTENTION = [
   { key: "basi", label: "Tanpa pembaruan >8 jam", hint: "Tindak lanjuti sebelum klien bertanya" },
   {
     key: "terlambat",
-    label: "Pembaruan terlambat ditolak",
+    label: "Perlu tindak lanjut",
     hint: "Ada pekerjaan nyata yang perlu diselesaikan kompensasinya",
   },
 ] as const
@@ -54,7 +54,7 @@ function cocok(order: JobOrder, key: AttentionKey | undefined, now: Date): boole
   if (key === "penugasan") return needsAssignment(order)
   if (key === "pembatalan") return order.cancellationRequested
   if (key === "basi") return isStale(order, now)
-  return hasLateRejected(order)
+  return hasOpenAlert(order)
 }
 
 /** Penyaringan, penghitungan, dan distribusi dihitung dari satu daftar yang sama
@@ -141,7 +141,7 @@ export function OpsOrderList({
             <TableBody>
               {orders.map((o) => {
                 const basi = isStale(o, now)
-                const perluTindakan = basi || hasLateRejected(o) || o.cancellationRequested
+                const perluTindakan = basi || hasOpenAlert(o) || o.cancellationRequested
 
                 return (
                   <TableRow key={o.id} className="h-10">

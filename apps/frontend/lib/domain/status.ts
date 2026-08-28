@@ -168,7 +168,7 @@ export function isStale(order: JobOrder, now: Date, hours = 8): boolean {
 /** Dibaca dari tanda yang dihitung server, bukan dari riwayat — daftar order
     sengaja tidak membawa riwayat, dan justru di daftar itulah tanda ini paling
     dibutuhkan koordinator. */
-export function hasLateRejected(order: JobOrder): boolean {
+export function hasOpenAlert(order: JobOrder): boolean {
   return order.hasOpenAlert
 }
 

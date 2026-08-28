@@ -87,6 +87,7 @@ export function orderFromDTO(d: JobOrderDTO): JobOrder {
     seq: d.seq,
     cancellationRequested: d.cancellation_requested,
     hasOpenAlert: d.has_open_alert,
+    openAlertType: d.open_alert_type ?? null,
     exitStatus: d.exit_status ?? null,
     pendingCancellation: d.pending_cancellation
       ? {

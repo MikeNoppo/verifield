@@ -1,4 +1,4 @@
-import { hasLateRejected, isStale, isTerminal, needsAssignment } from "./status"
+import { hasOpenAlert, isStale, isTerminal, needsAssignment } from "./status"
 import type { JobOrder, Status } from "./types"
 
 export type AttentionKey = "penugasan" | "pembatalan" | "basi" | "terlambat"
@@ -17,7 +17,7 @@ export function attentionCounts(orders: JobOrder[], now: Date): AttentionCounts 
     penugasan: orders.filter(needsAssignment).length,
     pembatalan: orders.filter((o) => o.cancellationRequested).length,
     basi: orders.filter((o) => isStale(o, now)).length,
-    terlambat: orders.filter(hasLateRejected).length,
+    terlambat: orders.filter(hasOpenAlert).length,
   }
 }
 
@@ -55,5 +55,5 @@ export function inBucket(order: JobOrder, bucket: Bucket | undefined): boolean {
   if (!bucket) return true
   if (bucket === "berjalan") return !isTerminal(order.status)
   if (bucket === "selesai") return order.status === "completed"
-  return order.status === "failed" || order.status === "cancelled" || hasLateRejected(order)
+  return order.status === "failed" || order.status === "cancelled" || hasOpenAlert(order)
 }

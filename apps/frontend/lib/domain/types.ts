@@ -1,10 +1,10 @@
-import type { Role, Status } from "@verifield/contract"
+import type { OpenAlertType, Role, Status } from "@verifield/contract"
 
 /** Status dan peran TIDAK ditulis ulang di sini — keduanya berasal dari anotasi
     Go lewat paket kontrak. Menyalinnya berarti dua daftar yang bisa menyimpang
     diam-diam; dengan cara ini, menambah satu status di backend langsung membuat
     setiap switch yang belum menanganinya gagal dikompilasi. */
-export type { Role, Status }
+export type { OpenAlertType, Role, Status }
 
 /** Segmen URL yang mewakili peran. Ini yang dilihat pengguna; Role yang dipakai
     aturan bisnis. */
@@ -84,6 +84,9 @@ export type JobOrder = {
   seq: number
   cancellationRequested: boolean
   hasOpenAlert: boolean
+  /** Kalimat yang harus dibaca koordinator berbeda per jenis alert, jadi jenisnya
+      ikut dikirim — bukan hanya ada/tidaknya. */
+  openAlertType: OpenAlertType | null
   pendingCancellation: PendingCancellation | null
   /** Hanya terisi pada halaman detail; daftar tidak membawa riwayat. */
   events: StatusEvent[]
