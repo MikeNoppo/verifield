@@ -1,9 +1,23 @@
-# Stack Verifield. Layanan aplikasi menyusul; untuk sekarang berkas ini
-# menyediakan database yang dibutuhkan backend, migrasi, dan seeder.
+# Seluruh stack Verifield dalam satu perintah:
 #
-#   docker compose up -d postgres
+#   docker compose up --build
+#
+# Lalu buka http://localhost:3000
+#
+# Urutannya dirantai lewat kondisi kesehatan, bukan lewat jeda waktu: migrasi
+# menunggu database benar-benar siap menerima query, seeder menunggu migrasi
+# selesai, dan aplikasi menunggu datanya ada.
 
 name: verifield
+
+x-db-env: &db-env
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_USER: ${DB_USER:-postgres}
+  DB_PASSWORD: ${DB_PASSWORD:-postgres}
+  DB_NAME: ${DB_NAME:-verifield}
+  DB_SSLMODE: disable
+  DB_TIMEZONE: ${DB_TIMEZONE:-Asia/Jakarta}
 
 services:
   postgres:
@@ -18,12 +32,72 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./deploy/postgres/init-atlas-dev-db.sql:/docker-entrypoint-initdb.d/10-atlas-dev-db.sql:ro
     healthcheck:
-      # Layanan lain menunggu kondisi ini, bukan sekadar menunggu port terbuka —
-      # Postgres membuka port sebelum benar-benar siap menerima query.
+      # pg_isready, bukan sekadar menunggu port terbuka — Postgres membuka
+      # portnya sebelum benar-benar siap menerima query.
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-verifield}"]
       interval: 5s
       timeout: 5s
       retries: 12
+
+  # Menerapkan migrasi lalu berhenti. Migrasi ter-embed di dalam binary, jadi
+  # container ini tidak perlu membawa folder migrations/ maupun Atlas.
+  migrate:
+    build:
+      context: ./backend
+    environment: *db-env
+    entrypoint: ["migrate", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Mengisi data contoh lalu berhenti. Idempoten, jadi aman dijalankan ulang.
+  seed:
+    build:
+      context: ./backend
+    environment:
+      <<: *db-env
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrator}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@verifield.id}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-verifield123}
+    entrypoint: ["seeder"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      <<: *db-env
+      APP_ENV: ${APP_ENV:-development}
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 8080
+      # Browser mengakses backend langsung untuk stream SSE, sehingga origin
+      # frontend harus diizinkan secara eksplisit.
+      HTTP_ALLOWED_ORIGINS: ${FRONTEND_ORIGIN:-http://localhost:3000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    # Koneksi SSE ditutup rapi saat container dihentikan; klien lalu menyambung
+    # ulang dan memulihkan diri lewat kursor.
+    stop_grace_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Nilai ini terpanggang saat build karena dibaca dari browser, bukan
+        # dari dalam container.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080/api/v1}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres-data:
