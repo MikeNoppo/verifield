@@ -3,8 +3,42 @@
 **Technical Assignment — Fullstack Developer · Case Study 1: Real-Time Order & Job Tracking**
 
 Dokumen ini berdiri sendiri sebagai Deliverable A. Analisis lengkap dengan nomor keputusan
-(B-01…B-09, A-01…A-08) ada di [01-business-context.md](01-business-context.md); rincian
+(B-01…B-11, A-01…A-08) ada di [01-business-context.md](01-business-context.md); rincian
 teknis dan bukti implementasi ada di [02-technical-design.md](02-technical-design.md).
+
+---
+
+## 0. Ringkasan Eksekutif
+
+Untuk pembaca yang hanya punya satu menit.
+
+Customer Service menghabiskan hari untuk menjawab satu pertanyaan: *"pekerjaan saya
+sudah sampai mana?"* Penyebabnya bukan klien yang tidak sabar, melainkan **status
+pekerjaan yang hanya ada di kepala inspektor, tidak di dalam sistem**. CS adalah
+jembatan manual antara lapangan dan klien.
+
+Karena itu halaman pelacakan saja tidak akan menyelesaikan apa pun. Kalau inspektor
+tidak memperbarui status, klien justru menelepon lebih sering — sekarang ia punya bukti
+bahwa statusnya diam tiga jam. Maka yang dibangun ada dua sisi sekaligus:
+
+| Untuk siapa | Yang ia dapat | Mengapa itu yang dipilih |
+|---|---|---|
+| **Klien** | Status berubah sendiri di layar, tanpa menekan apa pun, lengkap dengan riwayat waktunya | Menghapus alasan menelepon, bukan sekadar memindahkan informasinya |
+| **Inspektor** | Satu tombol besar berisi langkah berikutnya; tetap bekerja tanpa sinyal; ditekan berkali-kali tetap aman | Kalau memperbarui status itu merepotkan, ia tidak akan dilakukan — dan seluruh sistem ikut gagal |
+| **Koordinator** | Satu layar berisi order yang butuh disentuh manusia, bukan seluruh order | Perhatian manusia adalah sumber daya paling mahal di ruangan itu |
+
+Satu keputusan yang paling menentukan: **riwayat status disimpan sebagai kejadian yang
+hanya bertambah, tidak pernah ditimpa.** Hasil inspeksi menjadi dasar sertifikat, klaim
+asuransi, dan pelepasan pembayaran — pertanyaan "kapan inspektor tiba" harus tetap bisa
+dijawab setahun kemudian. Bentuk itu juga yang membuat tiga hal lain menjadi mungkin
+sekaligus: mengirim ulang perubahan yang terlewat, menolak laporan yang datang terbalik
+urutannya, dan menjelaskan kepada siapa pun mengapa statusnya begitu.
+
+**Ukuran keberhasilannya** bukan jumlah fitur, melainkan: berkurangnya panggilan yang
+menanyakan status, dan naiknya proporsi pekerjaan yang statusnya diperbarui inspektor
+kurang dari 15 menit sejak kejadian sebenarnya.
+
+Selebihnya dokumen ini menjelaskan asumsi, batasan, dan alasan di balik tiap keputusan.
 
 ---
 
@@ -63,6 +97,7 @@ yang statusnya diperbarui inspektor dalam waktu kurang dari 15 menit sejak kejad
 - Pembaruan layar tanpa refresh (SSE), indikator koneksi, antrean offline + idempotensi
 - Koreksi status oleh koordinator (wajib beralasan, tercatat sebagai entri baru)
 - Optimistic locking untuk aksi koordinator yang bersamaan (B-09)
+- Aturan jadwal ditegakkan di server, bukan hanya di formulir
 - Seed data, Docker Compose, manifest Kubernetes, pipeline CI, kontrak API ter-generate
 
 **Sengaja tidak dikerjakan:**
@@ -86,29 +121,26 @@ dua yang setengah jadi.
 
 ## 4. Architecture Diagram
 
-```
-                      browser
-            ┌──────────────────────────┐
-            │  Next.js (React 19)      │
-            │  /klien /ops /lapangan   │
-            └───┬──────────────┬───────┘
-        HTTP    │              │  SSE (satu koneksi per layar)
-        mutasi  │              │
-                ▼              ▼
-        ┌───────────────────────────────┐
-        │  Go + Gin · 3 instance        │
-        │  ┌──────────┐  ┌────────────┐ │
-        │  │ joborder │  │  realtime  │ │
-        │  │ service  │  │ hub + SSE  │ │
-        │  └────┬─────┘  └─────▲──────┘ │
-        └───────┼──────────────┼────────┘
-         tulis  │              │ LISTEN verifield_events
-                ▼              │
-        ┌───────────────────────────────┐
-        │  PostgreSQL                   │
-        │  job_status_events (seq)      │
-        │  NOTIFY di transaksi yg sama  │
-        └───────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph browser["Peramban"]
+        UI["Next.js · React 19<br/>/klien · /ops · /lapangan"]
+        OUTBOX[("Antrean offline<br/>localStorage")]
+        UI -. "ketukan saat sinyal hilang" .-> OUTBOX
+        OUTBOX -. "menyusul saat sinyal pulih" .-> UI
+    end
+
+    subgraph pods["Go + Gin · 3 instance di belakang load balancer"]
+        SVC["joborder service<br/>transisi · idempotensi · versi"]
+        HUB["realtime hub<br/>fan-out SSE"]
+    end
+
+    DB[("PostgreSQL<br/>job_status_events (seq)<br/>NOTIFY dalam transaksi yang sama")]
+
+    UI -- "HTTP · mutasi" --> SVC
+    HUB -- "SSE · satu koneksi per layar" --> UI
+    SVC -- "INSERT + UPDATE + pg_notify<br/>satu transaksi" --> DB
+    DB -- "LISTEN verifield_events" --> HUB
 ```
 
 Tidak ada instance yang berbicara langsung ke instance lain; Postgres adalah satu-satunya
@@ -125,14 +157,41 @@ backend langsung membuat setiap `switch` frontend yang belum menanganinya gagal 
 
 ## 5. Data Model / ERD
 
-```
-companies 1─N users ─┬─N job_orders N─1 inspection_types
-                     │    │
-                     │    ├─N job_status_events      (append-only)
-                     │    ├─N cancellation_requests
-                     │    └─N job_order_alerts
-                     │
-                     └──── reference_counters        (nomor JO-2026-0001)
+```mermaid
+erDiagram
+    companies ||--o{ users : "memiliki"
+    companies ||--o{ job_orders : "memesan"
+    users ||--o{ job_orders : "membuat / ditugaskan"
+    inspection_types ||--o{ job_orders : "jenis"
+    job_orders ||--o{ job_status_events : "riwayat (hanya bertambah)"
+    job_orders ||--o{ cancellation_requests : "permintaan pembatalan"
+    job_orders ||--o{ job_order_alerts : "tanda untuk koordinator"
+
+    job_orders {
+        uuid id PK
+        string reference_number "JO-2026-0001"
+        string current_status "cache baca-cepat"
+        int version "optimistic lock (B-09)"
+        timestamp status_changed_at
+    }
+    job_status_events {
+        bigserial seq "kursor SSE dan pemulihan (B-01)"
+        uuid job_order_id FK
+        string from_status
+        string to_status
+        timestamp occurred_at "kejadian di lapangan (B-02)"
+        timestamp received_at "diterima server (B-02)"
+        string client_event_id "penanda perangkat (B-03)"
+        bool accepted "false = tercatat, tidak diterapkan"
+        string rejection_reason "out_of_order / skipped_step / late_after_final"
+        bool is_correction "koreksi koordinator (B-06)"
+    }
+    cancellation_requests {
+        uuid id PK
+        string status "pending / approved / rejected / pending_settlement / settled"
+        string settlement_outcome "billed_full / billed_partial / waived (B-10)"
+        string reason
+    }
 ```
 
 | Field kunci | Ada karena | Peran |
@@ -161,15 +220,58 @@ urutannya, dan audit.
 (`In Progress`) → Selesai (`Completed`). Setiap transisi terlihat langsung di layar
 klien tanpa refresh.
 
+```mermaid
+stateDiagram-v2
+    [*] --> Requested: klien memesan
+    Requested --> Assigned: koordinator menugaskan
+    Assigned --> OnTheWay: inspektor berangkat
+    OnTheWay --> OnSite: inspektor tiba
+    OnSite --> InProgress: mulai bekerja
+    InProgress --> Completed: selesai
+
+    OnSite --> Failed: tiba, tidak dapat dikerjakan
+    InProgress --> Failed: kendala di tengah pekerjaan
+
+    Requested --> Cancelled
+    Assigned --> Cancelled
+    OnTheWay --> Cancelled
+    OnSite --> Cancelled
+    InProgress --> Cancelled: hanya lewat keputusan koordinator
+
+    Completed --> [*]
+    Failed --> [*]
+    Cancelled --> [*]
+
+    note right of Failed
+        Failed bukan Cancelled: inspektor
+        sudah tiba, sehingga biaya
+        kunjungan tetap dapat ditagih
+    end note
+```
+
+Tabel transisi ini yang mengikat, dan hanya maju. Laporan yang menuntut tahap yang
+sudah terlewati ditolak sebagai `out_of_order`; laporan yang melewati tahap yang belum
+pernah dilaporkan ditolak sebagai `skipped_step` beserta kalimat yang menyebut tahap
+yang sedang berlaku. Keduanya tetap tercatat pada riwayat (B-06).
+
 **Alur pembatalan (matriks kewenangan):**
 
-```
-Klien mengajukan pembatalan
- ├─ Requested / Assigned   → langsung Cancelled, tanpa biaya
- ├─ On The Way / On Site   → langsung Cancelled, dikenakan biaya kunjungan
- └─ In Progress            → menjadi permintaan pembatalan; koordinator memutuskan
-                              ├─ setuju → Cancelled
-                              └─ tolak  → pekerjaan lanjut sebagai In Progress
+```mermaid
+flowchart TD
+    A["Klien mengajukan pembatalan"] --> B{"Status saat itu?"}
+
+    B -- "Requested / Assigned" --> C["Cancelled<br/>tanpa biaya"]
+    B -- "On The Way" --> D["Cancelled<br/>biaya perjalanan"]
+    B -- "On Site" --> E["Cancelled<br/>biaya kunjungan"]
+    B -- "In Progress" --> F["Permintaan menunggu<br/>keputusan koordinator (B-05)<br/>pekerjaan TETAP berjalan"]
+
+    F --> G{"Mana yang lebih dulu?"}
+    G -- "koordinator memutuskan" --> H{"Setuju?"}
+    H -- "ya" --> I["Cancelled"]
+    H -- "tidak" --> J["Pekerjaan lanjut<br/>penolakan masuk riwayat"]
+
+    G -- "inspektor menyelesaikan pekerjaan" --> K["Status tetap Completed<br/>permintaan berpindah ke<br/>menunggu penyelesaian (B-10)"]
+    K --> L["Koordinator memutuskan penyelesaian:<br/>tagih penuh / tagih sebagian / bebaskan<br/>wajib beralasan, masuk riwayat"]
 ```
 
 Inspektor tidak berwenang membatalkan — ia hanya dapat melaporkan `Failed` disertai
@@ -199,7 +301,8 @@ kejadian, mengabaikan kiriman ganda, dan timeline klien menampilkan urutan yang 
 | Klien mengajukan pembatalan saat `In Progress`, inspektor menyelesaikan pekerjaan sebelum koordinator memutuskan | Dua cacat berlawanan: menyetujui pembatalan memindahkan order keluar dari status final, sedangkan menggugurkan permintaan memindahkan seluruh kerugian ke klien tanpa proses — dan klien menelepon CS | Status tetap `Completed`; permintaan **berpindah menunggu keputusan penyelesaian** (tagih penuh / sebagian / bebaskan, wajib beralasan) dan tetap di antrean koordinator sampai dijawab (B-10) |
 | Inspektor bekerja tanpa tahu klien sedang mengajukan pembatalan | Tabrakan di atas jadi kejadian rutin, bukan langka | Layar lapangan menandai bahwa pembatalan sedang ditinjau — memberi tahu tanpa memblokir, sehingga alasan B-05 tetap utuh (B-11) |
 | Jam pada perangkat inspektor tidak akurat | Waktu kejadian keliru dan merusak urutan riwayat | `ClampOccurredAt`: tolak >5 menit masa depan, >7 hari masa lalu, atau sebelum order dibuat; jatuh ke waktu terima + tanda `occurred_at_adjusted` (B-02) |
-| Klien memilih jadwal inspeksi di masa lalu | Jadwal tidak mungkin dieksekusi, inspektor mustahil tiba tepat waktu | Pemilih jadwal membatasi tanggal lampau: batas bawah form = sekarang, dihitung sekali saat form dibuka |
+| Klien memilih jadwal inspeksi di masa lalu, di luar jam kerja, atau salah ketik tahun | Order yang tidak mungkin dieksekusi akan mengendap di papan koordinator dan tidak pernah selesai — persis yang membuat klien menelepon | Ditolak di server, bukan hanya di formulir: sebelum sekarang, lebih dari 180 hari ke depan, mulai di luar jam kerja lapangan, atau rentang lebih dari 24 jam → 422 beserta kalimat yang menjelaskan. Formulir tetap membatasi pemilihnya sebagai kenyamanan |
+| Antrean perangkat membuang satu laporan yang ditolak permanen, laporan berikutnya jadi melompati tahap | Inspektor menerima kalimat yang menggambarkan situasi terbalik dan tidak tahu harus menekan apa | Arah penolakan dibedakan: `skipped_step` menyebut tahap yang sedang berlaku dan meminta tahap sebelumnya dilaporkan lebih dulu (B-06) |
 | Laporan `Completed` masuk setelah status final | Status final berubah → klien kehilangan kepercayaan | Ditolak, dicatat `accepted = false`, alert `late_update_rejected` (B-07) |
 
 ---
@@ -236,6 +339,14 @@ layar yang diam-diam basi. Replay mengirim **keadaan terkini** setiap order yang
 bukan setiap frame antara; riwayat lengkap tetap tersedia lewat
 `GET /orders/{id}/events?after_seq=`.
 
+Dua detail yang menentukan apakah pemulihan benar-benar bekerja di bawah beban. Pertama,
+seluruh order yang berubah dimuat dalam **satu kueri**, bukan satu kueri per order:
+pemulihan justru berjalan serentak untuk semua klien tepat sesudah rilis atau sesudah
+jaringan pulih, dan di sanalah beban itu paling tidak terjangkau. Kedua, replay diurutkan
+menaik menurut `seq` — bukan menurut id order — karena browser mengirim balik id pesan
+**terakhir** yang ia terima sebagai `Last-Event-ID`; urutan acak membuat kursor itu
+mundur tanpa alasan.
+
 **3) Idempotency & ordering.** Idempotensi berlapis tiga: antrean perangkat menolak
 penanda yang sudah ada; service memeriksa penanda di dalam transaksi yang sudah memegang
 `SELECT … FOR UPDATE` atas order (kunci itu yang membuat pemeriksaan bebas balapan);
@@ -243,8 +354,12 @@ unique index `(job_order_id, client_event_id)` sebagai jaring pengaman. Duplikat
 200 `duplicate: true` — bukan error — agar perangkat bisa mengosongkan antreannya.
 Ordering: **dua urutan berbeda** — `seq` (urutan penerimaan) menentukan status terkini,
 `occurred_at` (urutan kejadian) menentukan tampilan timeline. Tabel transisi hanya
-mengizinkan maju: pembaruan yang menuntut status mundur ditolak, tetapi tetap dicatat
-`accepted = false, rejection_reason = out_of_order`.
+mengizinkan maju, dan penolakannya dibedakan menurut arah: laporan yang menuntut tahap
+sudah terlewati atau sedang berlaku dicatat `rejection_reason = out_of_order`, sedangkan
+laporan yang melewati tahap yang belum pernah dilaporkan dicatat `skipped_step`. Keduanya
+tersimpan dengan `accepted = false`, tetapi hanya yang kedua yang berarti ada pekerjaan
+yang belum terlapor — dan inspektor perlu tahu bedanya untuk tahu apa yang harus ia
+tekan berikutnya.
 
 **4) Concurrency.** **Perubahan pertama menang; yang kedua ditolak dengan penjelasan**
 (B-09). Aksi koordinator membawa `expected_version`; service membandingkan dan menolak
