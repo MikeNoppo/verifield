@@ -21,48 +21,76 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { Inspector } from "@/lib/domain/types"
+import { Spinner } from "@/components/ui/spinner"
+import { useActor } from "@/components/verifield/actor-provider"
+import { ApiError } from "@/lib/api/client"
+import { assignInspector } from "@/lib/api/orders"
+import { useApplyResult } from "@/lib/live/hooks"
+import type { Inspector, JobOrder } from "@/lib/domain/types"
 
+type Hasil = { kind: "ok"; nama: string } | { kind: "conflict"; pesan: string } | null
+
+/** Penugasan membawa versi order yang sedang dilihat. Bila koordinator lain
+    sudah menugaskan lebih dulu, server menolak dan penolakannya ditampilkan apa
+    adanya — menerima keduanya berarti satu penugasan hilang tanpa ada yang
+    menyadari, dan dua inspektor berangkat ke lokasi yang sama (B-09). */
 export function AssignDialog({
-  orderRef,
-  city,
+  order,
   inspectors,
-  /** Order yang sengaja dipakai memperagakan B-09: koordinator lain sudah
-      menugaskan lebih dulu, sehingga perubahan kedua ditolak. */
-  simulateConflict = false,
   compact = false,
 }: {
-  orderRef: string
-  city: string
+  order: JobOrder
   inspectors: Inspector[]
-  simulateConflict?: boolean
   compact?: boolean
 }) {
-  const [open, setOpen] = React.useState(false)
-  const [hasil, setHasil] = React.useState<"idle" | "ok" | "conflict">("idle")
+  const actor = useActor()
+  const terapkan = useApplyResult()
 
-  const terdekat = [...inspectors].sort((a, b) => {
-    const kota = Number(b.city === city) - Number(a.city === city)
-    return kota !== 0 ? kota : a.activeJobs - b.activeJobs
-  })
-  const [pilihan, setPilihan] = React.useState(terdekat[0]?.id ?? "")
+  const [open, setOpen] = React.useState(false)
+  const [kirim, setKirim] = React.useState(false)
+  const [hasil, setHasil] = React.useState<Hasil>(null)
+
+  // Beban kerja jadi dasar urutan karena penugasan otomatis berada di luar
+  // cakupan — angka inilah yang menggantikan pertimbangan itu.
+  const urut = React.useMemo(
+    () => [...inspectors].sort((a, b) => a.activeJobs - b.activeJobs),
+    [inspectors],
+  )
+  const [pilihan, setPilihan] = React.useState(urut[0]?.id ?? "")
 
   function tutup(next: boolean) {
     setOpen(next)
-    if (!next) setHasil("idle")
+    if (!next) setHasil(null)
+  }
+
+  async function tugaskan() {
+    setKirim(true)
+    try {
+      const terbaru = await assignInspector(actor.id, order.id, pilihan, order.version)
+      terapkan(terbaru)
+      setHasil({ kind: "ok", nama: terbaru.inspectorName ?? "Inspektor" })
+    } catch (error) {
+      setHasil({
+        kind: "conflict",
+        pesan:
+          error instanceof ApiError
+            ? error.message
+            : "Penugasan tidak dapat dikirim. Periksa koneksi Anda lalu coba lagi.",
+      })
+    } finally {
+      setKirim(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={tutup}>
-      <DialogTrigger
-        render={<Button variant="outline" size={compact ? "xs" : "sm"} />}
-      >
+      <DialogTrigger render={<Button variant="outline" size={compact ? "xs" : "sm"} />}>
         <UserPlusIcon data-icon="inline-start" />
         Tugaskan
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
-        {hasil === "ok" ? (
+        {hasil?.kind === "ok" ? (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -70,43 +98,34 @@ export function AssignDialog({
                 Inspektor ditugaskan
               </DialogTitle>
               <DialogDescription>
-                {orderRef} sekarang berstatus Ditugaskan. Perubahan ini langsung terlihat oleh
-                klien dan muncul pada daftar tugas inspektor.
+                {hasil.nama} ditugaskan pada {order.ref}. Klien melihat perubahan ini tanpa
+                memuat ulang halaman, dan order muncul di daftar tugas inspektor.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose render={<Button variant="secondary" />}>Tutup</DialogClose>
             </DialogFooter>
           </>
-        ) : hasil === "conflict" ? (
+        ) : hasil?.kind === "conflict" ? (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <TriangleAlertIcon className="size-4 text-attention" />
-                Data telah berubah
+                Perubahan ditolak
               </DialogTitle>
-              <DialogDescription>
-                Koordinator lain menugaskan Budi Santoso pada {orderRef} 12 detik lalu.
-                Penugasan Anda tidak diterapkan.
-              </DialogDescription>
+              <DialogDescription>{hasil.pesan}</DialogDescription>
             </DialogHeader>
-            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-              Perubahan pertama yang menang. Menerima keduanya berarti salah satu hilang tanpa
-              ada yang menyadarinya — dan data ini menjadi dasar dokumen komersial.
-            </p>
             <DialogFooter>
-              <DialogClose render={<Button variant="secondary" />}>
-                Muat ulang tampilan
-              </DialogClose>
+              <DialogClose render={<Button variant="secondary" />}>Tutup</DialogClose>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Tugaskan inspektor</DialogTitle>
+              <DialogTitle>Tugaskan inspektor untuk {order.ref}</DialogTitle>
               <DialogDescription>
-                {orderRef} · {city}. Daftar diurutkan berdasarkan kota yang sama lalu beban
-                aktif paling sedikit.
+                {order.location}, {order.city}. Urutan mengikuti jumlah penugasan yang sedang
+                berjalan.
               </DialogDescription>
             </DialogHeader>
 
@@ -115,9 +134,9 @@ export function AssignDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {terdekat.map((i) => (
+                {urut.map((i) => (
                   <SelectItem key={i.id} value={i.id}>
-                    {i.name} · {i.city} · {i.activeJobs} job aktif
+                    {i.name} · {i.activeJobs} penugasan berjalan
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -125,7 +144,8 @@ export function AssignDialog({
 
             <DialogFooter>
               <DialogClose render={<Button variant="secondary" />}>Batal</DialogClose>
-              <Button onClick={() => setHasil(simulateConflict ? "conflict" : "ok")}>
+              <Button onClick={tugaskan} disabled={kirim || !pilihan}>
+                {kirim ? <Spinner /> : null}
                 Tugaskan
               </Button>
             </DialogFooter>

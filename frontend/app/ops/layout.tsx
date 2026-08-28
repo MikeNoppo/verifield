@@ -1,21 +1,23 @@
 import { AppShell } from "@/components/verifield/app-shell"
+import { ActorProvider } from "@/components/verifield/actor-provider"
 import { ConnectionIndicator } from "@/components/verifield/connection-indicator"
-import { DEMO_NOW } from "@/lib/demo-time"
-import { waktu } from "@/lib/format"
+import { LiveProvider } from "@/components/verifield/live-provider"
+import { actorFor } from "@/lib/session"
 
-export default function OpsLayout({ children }: LayoutProps<"/ops">) {
+export default async function OpsLayout({ children }: LayoutProps<"/ops">) {
+  const actor = await actorFor("ops")
+
   return (
-    <AppShell
-      width="wide"
-      identity="Rina Oktaviani · Koordinator Operasional"
-      right={
-        <ConnectionIndicator
-          lastUpdate={waktu(DEMO_NOW.toISOString())}
-          className="hidden md:inline-flex"
-        />
-      }
-    >
-      {children}
-    </AppShell>
+    <ActorProvider actor={actor}>
+      <LiveProvider actorId={actor.id}>
+        <AppShell
+          width="wide"
+          identity={`${actor.name} · Koordinator Operasional`}
+          right={<ConnectionIndicator className="hidden md:inline-flex" />}
+        >
+          {children}
+        </AppShell>
+      </LiveProvider>
+    </ActorProvider>
   )
 }

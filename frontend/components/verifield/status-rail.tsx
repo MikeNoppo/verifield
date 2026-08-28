@@ -1,7 +1,7 @@
 import { BanIcon, XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { PIPELINE, STATUS_LABEL, isTerminal, pipelineIndex } from "@/lib/domain/status"
+import { PIPELINE, STATUS_LABEL, pipelineIndex } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
 
 /** Warna tiap ruas mengambil langkah ramp-nya sendiri, sehingga rel ini
@@ -22,7 +22,7 @@ function seg(color: string) {
 }
 
 type Props = {
-  order: Pick<JobOrder, "status" | "events">
+  order: Pick<JobOrder, "status" | "exitStatus">
   /** Di dalam tabel, StatusBadge di sebelahnya sudah membawa nama yang dapat
       diakses — rel cukup disembunyikan agar pembaca layar tidak mendengar
       enam ruas kosong per baris. */
@@ -34,12 +34,10 @@ export function StatusRail({ order, label = "none", className }: Props) {
   const status = order.status
   const terminatedEarly = status === "failed" || status === "cancelled"
 
-  // Tahap tempat pekerjaan berhenti, dibaca dari transisi terakhir yang masih
-  // berada di dalam rel.
-  const lastInRail = [...order.events]
-    .reverse()
-    .find((e) => e.kind === "transition" && !isTerminal(e.to))
-  const exitAt = lastInRail ? pipelineIndex(lastInRail.to) : 0
+  // Tahap tempat pekerjaan berhenti dihitung server, bukan dipindai dari
+  // riwayat: daftar order sengaja tidak membawa riwayat, dan justru di daftar
+  // itulah rel ini paling sering dibaca.
+  const exitAt = Math.max(0, pipelineIndex(order.exitStatus ?? status))
   const currentAt = terminatedEarly ? exitAt : pipelineIndex(status)
 
   const visible = terminatedEarly ? PIPELINE.slice(0, exitAt + 1) : PIPELINE
@@ -101,13 +99,10 @@ export function StatusRail({ order, label = "none", className }: Props) {
 
 /** Versi bersemantik untuk halaman detail, tempat satu stepper per halaman
     membuat biaya markup-nya sepadan. */
-export function StatusStepper({ order }: { order: Pick<JobOrder, "status" | "events"> }) {
+export function StatusStepper({ order }: { order: Pick<JobOrder, "status" | "exitStatus"> }) {
   const status = order.status
   const terminatedEarly = status === "failed" || status === "cancelled"
-  const lastInRail = [...order.events]
-    .reverse()
-    .find((e) => e.kind === "transition" && !isTerminal(e.to))
-  const exitAt = lastInRail ? pipelineIndex(lastInRail.to) : 0
+  const exitAt = Math.max(0, pipelineIndex(order.exitStatus ?? status))
   const currentAt = terminatedEarly ? exitAt : pipelineIndex(status)
 
   return (

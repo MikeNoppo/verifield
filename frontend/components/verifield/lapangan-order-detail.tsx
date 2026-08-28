@@ -1,0 +1,60 @@
+"use client"
+
+import Link from "next/link"
+import { ArrowLeftIcon, MapPinIcon } from "lucide-react"
+
+import { StatusBadge } from "@/components/verifield/status-badge"
+import { StatusStepper } from "@/components/verifield/status-rail"
+import { NextAction, SyncQueueBanner } from "@/components/verifield/next-action"
+import { Card } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { useLiveOrder } from "@/lib/live/hooks"
+import type { JobOrder } from "@/lib/domain/types"
+import { tanggalLengkap } from "@/lib/format"
+
+export function LapanganOrderDetail({ order: initial }: { order: JobOrder }) {
+  const order = useLiveOrder(initial)
+
+  return (
+    <>
+      <Link
+        href="/lapangan"
+        className="mb-4 inline-flex min-h-8 items-center gap-1.5 text-xs text-muted-foreground"
+      >
+        <ArrowLeftIcon className="size-3.5" />
+        Tugas saya
+      </Link>
+
+      <SyncQueueBanner />
+
+      <div className="mb-5 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="tabular font-mono text-xs text-muted-foreground">{order.ref}</span>
+          <StatusBadge status={order.status} size="sm" />
+        </div>
+        <h1 className="text-lg leading-snug font-semibold tracking-tight">{order.object}</h1>
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <MapPinIcon className="size-3.5 shrink-0" />
+          {order.location}, {order.city}
+        </span>
+        <span className="tabular text-xs text-muted-foreground">
+          Dijadwalkan {tanggalLengkap(order.scheduledAt)}
+        </span>
+      </div>
+
+      {/* Satu tombol besar berisi tindakan berikutnya. Tidak ada daftar status
+          untuk dipilih, dan tidak ada tombol batal (B-04, F-04). */}
+      <div className="mb-6">
+        <NextAction order={order} />
+      </div>
+
+      <Card className="gap-3 p-4">
+        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Tahapan
+        </h2>
+        <Separator />
+        <StatusStepper order={order} />
+      </Card>
+    </>
+  )
+}

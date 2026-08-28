@@ -1,21 +1,22 @@
 import { AppShell } from "@/components/verifield/app-shell"
+import { ActorProvider } from "@/components/verifield/actor-provider"
 import { ConnectionIndicator } from "@/components/verifield/connection-indicator"
-import { CURRENT_CLIENT } from "@/lib/mock/seed"
-import { DEMO_NOW } from "@/lib/demo-time"
-import { waktu } from "@/lib/format"
+import { LiveProvider } from "@/components/verifield/live-provider"
+import { actorFor } from "@/lib/session"
 
-export default function KlienLayout({ children }: LayoutProps<"/klien">) {
+export default async function KlienLayout({ children }: LayoutProps<"/klien">) {
+  const actor = await actorFor("klien")
+
   return (
-    <AppShell
-      identity={CURRENT_CLIENT}
-      right={
-        <ConnectionIndicator
-          lastUpdate={waktu(DEMO_NOW.toISOString())}
-          className="hidden md:inline-flex"
-        />
-      }
-    >
-      {children}
-    </AppShell>
+    <ActorProvider actor={actor}>
+      <LiveProvider actorId={actor.id}>
+        <AppShell
+          identity={actor.companyName ?? actor.name}
+          right={<ConnectionIndicator className="hidden md:inline-flex" />}
+        >
+          {children}
+        </AppShell>
+      </LiveProvider>
+    </ActorProvider>
   )
 }

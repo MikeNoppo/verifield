@@ -1,8 +1,14 @@
-import { CloudOffIcon, PencilLineIcon, TriangleAlertIcon } from "lucide-react"
+import {
+  ClockAlertIcon,
+  CloudOffIcon,
+  PencilLineIcon,
+  RotateCcwIcon,
+  TriangleAlertIcon,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { STATUS_LABEL } from "@/lib/domain/status"
-import type { StatusEvent, Status } from "@/lib/domain/types"
+import type { EventKind, Role, Status, StatusEvent } from "@/lib/domain/types"
 import { DualTimestamp } from "./dual-timestamp"
 import { tanggalLengkap } from "@/lib/format"
 
@@ -17,25 +23,54 @@ const DOT: Record<Status, string> = {
   cancelled: "bg-status-cancelled",
 }
 
-const ROLE_LABEL = {
-  klien: "Klien",
-  ops: "Koordinator",
-  lapangan: "Inspektor",
-} as const
+const ROLE_LABEL: Record<Role, string> = {
+  client: "Klien",
+  admin: "Koordinator",
+  inspector: "Inspektor",
+  cs: "Customer Service",
+}
+
+/** Entri yang tidak mengubah status digambar berbeda dari entri yang mengubah.
+    Perbedaannya penting: klien yang melihat "Selesai" dicoret harus langsung
+    paham bahwa pekerjaannya TIDAK berpindah ke Selesai. */
+const APPLIED: Record<EventKind, boolean> = {
+  transition: true,
+  correction: true,
+  late_rejected: false,
+  out_of_order: false,
+  cancellation_request: false,
+  cancellation_rejected: false,
+}
+
+const ICON: Partial<Record<EventKind, typeof CloudOffIcon>> = {
+  correction: PencilLineIcon,
+  late_rejected: CloudOffIcon,
+  out_of_order: ClockAlertIcon,
+  cancellation_request: TriangleAlertIcon,
+  cancellation_rejected: RotateCcwIcon,
+}
 
 function judul(e: StatusEvent): string {
-  if (e.kind === "correction") {
-    return `Koreksi ke ${STATUS_LABEL[e.to]}`
+  switch (e.kind) {
+    case "correction":
+      return `Koreksi ke ${STATUS_LABEL[e.to]}`
+    case "cancellation_request":
+      return "Pembatalan diajukan"
+    case "cancellation_rejected":
+      return "Permintaan pembatalan ditolak"
+    case "late_rejected":
+      return `Laporan ${STATUS_LABEL[e.to]} ditolak — order sudah ditutup`
+    case "out_of_order":
+      return `Laporan ${STATUS_LABEL[e.to]} ditolak — status sudah lebih maju`
+    default:
+      return STATUS_LABEL[e.to]
   }
-  if (e.kind === "cancellation_request") return "Pembatalan diajukan"
-  if (e.kind === "late_rejected") return `Laporan ${STATUS_LABEL[e.to]} ditolak`
-  return STATUS_LABEL[e.to]
 }
 
 function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean }) {
-  const rejected = event.kind === "late_rejected"
-  const correction = event.kind === "correction"
-  const request = event.kind === "cancellation_request"
+  const diterapkan = APPLIED[event.kind]
+  const Icon = ICON[event.kind]
+  const koreksi = event.kind === "correction"
 
   return (
     <li className="relative flex gap-4 pb-6 last:pb-0">
@@ -44,10 +79,9 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
       <span
         className={cn(
           "relative mt-1.5 flex size-2.5 shrink-0 items-center justify-center rounded-full",
-          rejected && "bg-transparent ring-2 ring-muted-foreground/40",
-          correction && "bg-transparent ring-2 ring-attention/70",
-          request && "bg-transparent ring-2 ring-attention/70",
-          !rejected && !correction && !request && DOT[event.to],
+          !diterapkan && "bg-transparent ring-2 ring-muted-foreground/40",
+          koreksi && "bg-transparent ring-2 ring-attention/70",
+          diterapkan && !koreksi && DOT[event.to],
         )}
       />
 
@@ -57,14 +91,21 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
             <span
               className={cn(
                 "text-sm font-medium",
-                rejected ? "text-muted-foreground line-through" : "text-foreground",
+                diterapkan ? "text-foreground" : "text-muted-foreground line-through",
               )}
             >
               {judul(event)}
             </span>
-            {rejected ? <CloudOffIcon className="size-3.5 text-muted-foreground" /> : null}
-            {correction ? <PencilLineIcon className="size-3.5 text-attention" /> : null}
-            {request ? <TriangleAlertIcon className="size-3.5 text-attention" /> : null}
+            {Icon ? (
+              <Icon
+                className={cn(
+                  "size-3.5",
+                  koreksi || event.kind === "cancellation_request"
+                    ? "text-attention"
+                    : "text-muted-foreground",
+                )}
+              />
+            ) : null}
           </span>
 
           <DualTimestamp
@@ -76,27 +117,38 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
         </div>
 
         <span className="text-xs text-muted-foreground">
-          {ROLE_LABEL[event.actorRole]} · {event.actorName}
+          {ROLE_LABEL[event.actorRole]}
+          {event.actorName ? ` · ${event.actorName}` : ""}
         </span>
 
         {event.reason ? (
           <p
             className={cn(
               "rounded-md border px-3 py-2 text-xs leading-relaxed",
-              rejected
-                ? "border-border bg-muted/40 text-muted-foreground"
-                : correction || request
-                  ? "border-attention/25 bg-attention/8 text-foreground"
-                  : "border-border bg-muted/40 text-muted-foreground",
+              koreksi || event.kind === "cancellation_request"
+                ? "border-attention/25 bg-attention/8 text-foreground"
+                : "border-border bg-muted/40 text-muted-foreground",
             )}
           >
             {event.reason}
           </p>
         ) : null}
 
+        {/* Jam perangkat di luar batas wajar. Ditampilkan karena waktu kejadian
+            adalah dasar laporan dan penagihan — pembacanya berhak tahu bahwa
+            angka yang dilihatnya berasal dari server, bukan dari lapangan (B-02). */}
+        {event.timeAdjusted ? (
+          <span className="text-[11px] leading-relaxed text-muted-foreground">
+            Waktu yang dilaporkan perangkat berada di luar batas wajar, sehingga waktu
+            penerimaan sistem yang dipakai.
+          </span>
+        ) : null}
+
         {showAudit ? (
           <span className="tabular font-mono text-[10px] text-muted-foreground/70">
-            {event.idempotencyKey} · diterima {tanggalLengkap(event.receivedTime)}
+            #{event.seq}
+            {event.idempotencyKey ? ` · ${event.idempotencyKey}` : ""} · diterima{" "}
+            {tanggalLengkap(event.receivedTime)}
           </span>
         ) : null}
       </div>
@@ -106,7 +158,7 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
 
 /** Urutan mengikuti waktu kejadian, bukan waktu terima. Empat pembaruan yang
     tiba sekaligus setelah sinyal pulih tetap tampil dalam urutan yang benar
-    bagi klien (B-02, B-06). */
+    bagi klien (B-02, B-06). Seq jadi pemecah seri agar urutannya stabil. */
 export function EventTimeline({
   events,
   showAudit = false,
@@ -114,9 +166,10 @@ export function EventTimeline({
   events: StatusEvent[]
   showAudit?: boolean
 }) {
-  const urut = [...events].sort(
-    (a, b) => new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime(),
-  )
+  const urut = [...events].sort((a, b) => {
+    const selisih = new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime()
+    return selisih !== 0 ? selisih : a.seq - b.seq
+  })
 
   return (
     <ol className="flex flex-col">

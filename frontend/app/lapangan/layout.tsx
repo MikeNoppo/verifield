@@ -1,11 +1,22 @@
 import { AppShell } from "@/components/verifield/app-shell"
-import { INSPECTORS, CURRENT_INSPECTOR_ID } from "@/lib/mock/seed"
+import { ActorProvider } from "@/components/verifield/actor-provider"
+import { ConnectionIndicator } from "@/components/verifield/connection-indicator"
+import { LiveProvider } from "@/components/verifield/live-provider"
+import { OutboxProvider } from "@/components/verifield/outbox-provider"
+import { actorFor } from "@/lib/session"
 
-export default function LapanganLayout({ children }: LayoutProps<"/lapangan">) {
-  const me = INSPECTORS.find((i) => i.id === CURRENT_INSPECTOR_ID)!
+export default async function LapanganLayout({ children }: LayoutProps<"/lapangan">) {
+  const actor = await actorFor("lapangan")
+
   return (
-    <AppShell width="narrow" identity={`${me.name} · ${me.code}`}>
-      {children}
-    </AppShell>
+    <ActorProvider actor={actor}>
+      <LiveProvider actorId={actor.id}>
+        <OutboxProvider>
+          <AppShell width="narrow" identity={actor.name} right={<ConnectionIndicator compact />}>
+            {children}
+          </AppShell>
+        </OutboxProvider>
+      </LiveProvider>
+    </ActorProvider>
   )
 }
