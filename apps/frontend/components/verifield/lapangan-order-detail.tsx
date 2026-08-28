@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeftIcon, MapPinIcon } from "lucide-react"
+import { ArrowLeftIcon, MapPinIcon, TriangleAlertIcon } from "lucide-react"
 
 import { StatusBadge } from "@/components/verifield/status-badge"
 import { StatusStepper } from "@/components/verifield/status-rail"
@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveOrder } from "@/lib/live/hooks"
+import { isTerminal } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
 import { tanggalLengkap } from "@/lib/format"
 
@@ -28,6 +29,24 @@ export function LapanganOrderDetail({ order: initial }: { order: JobOrder }) {
       </Link>
 
       <SyncQueueBanner />
+
+      {/* B-05 memutuskan pekerjaan tetap berjalan selama permintaan pembatalan
+          ditinjau — permintaannya bisa saja ditolak. Tetapi berjalan terus
+          tanpa memberi tahu inspektor membuat tabrakan "selesai mendahului
+          keputusan" jadi kejadian rutin, bukan langka. Memberi tahu tanpa
+          memblokir sudah cukup menurunkannya (B-10). */}
+      {order.cancellationRequested && !isTerminal(order.status) ? (
+        <div className="mb-4 flex gap-3 rounded-xl border border-attention/30 bg-attention/6 p-4">
+          <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-attention" />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium">Klien mengajukan pembatalan</span>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Koordinator sedang meninjau. Hubungi koordinator sebelum melanjutkan — bila
+              Anda menyelesaikan pekerjaan lebih dulu, statusnya tidak dapat diubah lagi.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mb-5 flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
