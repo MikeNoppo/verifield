@@ -26,6 +26,7 @@ export type EventKind =
   | "out_of_order"
   | "cancellation_request"
   | "cancellation_rejected"
+  | "cancellation_obsolete"
 
 export type StatusEvent = {
   id: string

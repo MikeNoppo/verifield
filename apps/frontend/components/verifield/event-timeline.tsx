@@ -40,6 +40,7 @@ const APPLIED: Record<EventKind, boolean> = {
   out_of_order: false,
   cancellation_request: false,
   cancellation_rejected: false,
+  cancellation_obsolete: false,
 }
 
 const ICON: Partial<Record<EventKind, typeof CloudOffIcon>> = {
@@ -48,6 +49,7 @@ const ICON: Partial<Record<EventKind, typeof CloudOffIcon>> = {
   out_of_order: ClockAlertIcon,
   cancellation_request: TriangleAlertIcon,
   cancellation_rejected: RotateCcwIcon,
+  cancellation_obsolete: ClockAlertIcon,
 }
 
 function judul(e: StatusEvent): string {
@@ -58,6 +60,8 @@ function judul(e: StatusEvent): string {
       return "Pembatalan diajukan"
     case "cancellation_rejected":
       return "Permintaan pembatalan ditolak"
+    case "cancellation_obsolete":
+      return "Permintaan pembatalan gugur — pekerjaan sudah ditutup"
     case "late_rejected":
       return `Laporan ${STATUS_LABEL[e.to]} ditolak — order sudah ditutup`
     case "out_of_order":

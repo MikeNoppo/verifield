@@ -76,7 +76,7 @@ export function OpsOrderDetail({
         </div>
       </div>
 
-      {order.pendingCancellation ? (
+      {order.pendingCancellation && !isTerminal(order.status) ? (
         <div className="mb-4">
           <CancellationReview order={order} request={order.pendingCancellation} />
         </div>

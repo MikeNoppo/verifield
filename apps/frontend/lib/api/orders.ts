@@ -42,6 +42,8 @@ function kindOf(d: StatusEventDTO): EventKind {
       return "cancellation_request"
     case "cancellation_rejected":
       return "cancellation_rejected"
+    case "cancellation_obsolete":
+      return "cancellation_obsolete"
     default:
       return "transition"
   }
