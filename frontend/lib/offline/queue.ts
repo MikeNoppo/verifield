@@ -115,10 +115,11 @@ export async function flush(): Promise<void> {
   if (state.flushing || state.items.length === 0) return
   publish({ ...state, flushing: true })
 
-  let sisa = [...state.items]
+  const antrian = [...state.items]
+  const terkirim = new Set<string>()
   const gagal: OutboxState["failures"] = []
 
-  for (const item of state.items) {
+  for (const item of antrian) {
     try {
       const hasil = await submitStatusEvent(item.actorId, item.orderId, {
         to_status: item.toStatus,
@@ -130,7 +131,7 @@ export async function flush(): Promise<void> {
       // Layar berubah seketika tanpa menunggu pesan real-time yang membawa
       // perubahan yang sama kembali.
       apply(hasil.order)
-      sisa = sisa.filter((i) => i.clientEventId !== item.clientEventId)
+      terkirim.add(item.clientEventId)
 
       // Laporan yang ditolak tetap keluar dari antrean: server sudah
       // mencatatnya, jadi mengirim ulang tidak akan mengubah apa pun. Yang
@@ -141,7 +142,7 @@ export async function flush(): Promise<void> {
     } catch (error) {
       if (error instanceof ApiError) {
         // Server menjawab dan menolak. Mengulanginya tidak akan berhasil.
-        sisa = sisa.filter((i) => i.clientEventId !== item.clientEventId)
+        terkirim.add(item.clientEventId)
         gagal.push({ orderRef: item.orderRef, message: error.message })
         continue
       }
@@ -150,6 +151,12 @@ export async function flush(): Promise<void> {
       break
     }
   }
+
+  // WARNING: sisa dihitung dari state TERKINI, bukan dari salinan yang diambil
+  // sebelum perulangan. Inspektor bisa menekan tombol lagi selagi pengiriman
+  // berjalan, dan laporan itu sudah masuk antrean — memakai salinan lama akan
+  // menghapusnya tanpa jejak.
+  const sisa = state.items.filter((i) => !terkirim.has(i.clientEventId))
 
   persist(sisa)
   publish({
