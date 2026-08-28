@@ -17,9 +17,7 @@ import (
 	"verifield-be/internal/common/database"
 	"verifield-be/internal/common/middleware"
 	"verifield-be/internal/common/validation"
-	"verifield-be/internal/modules/auth"
 	"verifield-be/internal/modules/user"
-	"verifield-be/internal/shared/jwtx"
 )
 
 // Application memegang seluruh dependency yang hidup selama aplikasi berjalan.
@@ -29,9 +27,7 @@ type Application struct {
 	db     *gorm.DB
 	engine *gin.Engine
 
-	jwt  *jwtx.Manager
 	user *user.Module
-	auth *auth.Module
 }
 
 // New merakit aplikasi: koneksi database, provider tiap modul, middleware
@@ -52,16 +48,8 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	jwtManager := jwtx.NewManager(
-		cfg.JWT.Secret,
-		cfg.JWT.Issuer,
-		cfg.JWT.AccessTokenTTL,
-		cfg.JWT.RefreshTokenTTL,
-	)
-
 	// --- Perakitan modul (padanan daftar `imports` di AppModule) ---
 	userModule := user.NewModule(db)
-	authModule := auth.NewModule(jwtManager, userModule.Service)
 
 	engine := gin.New()
 
@@ -80,9 +68,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 		log:    log,
 		db:     db,
 		engine: engine,
-		jwt:    jwtManager,
 		user:   userModule,
-		auth:   authModule,
 	}
 
 	app.registerRoutes()

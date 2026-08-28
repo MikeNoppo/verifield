@@ -5,26 +5,8 @@ package ctxkey
 import "github.com/gin-gonic/gin"
 
 const (
-	userID    = "auth.user_id"
-	userRole  = "auth.user_role"
 	requestID = "request.id"
 )
-
-// SetUser menyimpan identitas hasil verifikasi JWT ke context.
-func SetUser(c *gin.Context, id, role string) {
-	c.Set(userID, id)
-	c.Set(userRole, role)
-}
-
-// UserID mengambil id user yang sedang login.
-func UserID(c *gin.Context) (string, bool) {
-	return stringValue(c, userID)
-}
-
-// UserRole mengambil role user yang sedang login.
-func UserRole(c *gin.Context) (string, bool) {
-	return stringValue(c, userRole)
-}
 
 // SetRequestID menyimpan id request untuk keperluan tracing di log.
 func SetRequestID(c *gin.Context, id string) {

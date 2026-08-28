@@ -8,9 +8,7 @@ import (
 	swaggerfiles "github.com/swaggo/files"
 	ginswagger "github.com/swaggo/gin-swagger"
 
-	"verifield-be/internal/common/middleware"
 	"verifield-be/internal/common/response"
-	"verifield-be/internal/schema"
 )
 
 // apiPrefix adalah global prefix, padanan app.setGlobalPrefix('api/v1').
@@ -19,17 +17,12 @@ const apiPrefix = "/api/v1"
 // registerRoutes memasang seluruh route aplikasi.
 // Menambah modul baru cukup satu baris RegisterRoutes di bawah.
 func (a *Application) registerRoutes() {
-	// Guard yang dibagikan ke setiap modul.
-	authGuard := middleware.JWTAuth(a.jwt)
-	adminOnly := middleware.RequireRoles(string(schema.RoleAdmin))
-
 	a.engine.GET("/health", healthHandler)
 
 	api := a.engine.Group(apiPrefix)
 	api.GET("/health", healthHandler)
 
-	a.auth.RegisterRoutes(api, authGuard)
-	a.user.RegisterRoutes(api, authGuard, adminOnly)
+	a.user.RegisterRoutes(api)
 
 	// Dokumentasi API tidak diekspos di production.
 	if !a.cfg.App.IsProduction() {

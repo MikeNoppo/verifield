@@ -14,7 +14,6 @@ REST API layanan inspeksi & sampling lapangan dengan **Go + [Gin](https://github
 | Repository TypeORM | `internal/modules/xxx/xxx.repository.go` |
 | `dto/*.dto.ts` + class-validator | `internal/modules/xxx/dto/*.dto.go` + tag `binding:"..."` |
 | `schema.prisma` (Prisma) | [internal/schema/schema.go](internal/schema/schema.go) — semua tabel dalam satu file |
-| `JwtAuthGuard` / `RolesGuard` | [jwt_auth.go](internal/common/middleware/jwt_auth.go) / [roles.go](internal/common/middleware/roles.go) |
 | `TransformInterceptor` | [internal/common/response](internal/common/response/response.go) |
 | `HttpException` + `ExceptionFilter` | [apperror](internal/common/apperror/apperror.go) + [error_handler.go](internal/common/middleware/error_handler.go) |
 | `ConfigModule` | [internal/common/config](internal/common/config/config.go) |
@@ -33,12 +32,11 @@ internal/
   common/                   infrastruktur lintas modul
     config/ database/ logger/
     apperror/ response/ validation/ httpx/ pagination/
-    middleware/             recovery, request logger, CORS, error handler, guard
+    middleware/             recovery, request logger, CORS, error handler
   schema/                   SCHEMA DATABASE — semua tabel & relasi dalam satu file
   modules/
     user/                   modul user — CRUD lengkap, pakai sebagai template modul baru
-    auth/                   modul autentikasi (register, login, refresh, me)
-  shared/                   hash, jwtx, ctxkey
+  shared/                   hash, ctxkey
 migrations/                 berkas migrasi SQL (ter-embed ke binary)
 docs/                       spesifikasi Swagger (hasil generate)
 atlas.hcl                   konfigurasi generate migrasi
@@ -47,7 +45,7 @@ atlas.hcl                   konfigurasi generate migrasi
 ## Menjalankan
 
 ```bash
-cp .env.example .env      # sesuaikan DB_* dan JWT_SECRET
+cp .env.example .env      # sesuaikan DB_*
 go mod tidy
 make migrate-up           # buat tabel  (~ prisma migrate deploy)
 make seed                 # buat admin pertama  (~ prisma db seed)
@@ -62,33 +60,26 @@ Perintah lain: `make help`.
 
 Global prefix `/api/v1`.
 
-| Method | Path | Akses |
-|---|---|---|
-| GET | `/health` | publik |
-| POST | `/auth/register` | publik |
-| POST | `/auth/login` | publik |
-| POST | `/auth/refresh` | publik |
-| GET | `/auth/me` | token |
-| GET | `/users` | admin |
-| POST | `/users` | admin |
-| GET | `/users/:id` | token |
-| PATCH · DELETE | `/users/:id` | admin |
+| Method | Path |
+|---|---|
+| GET | `/health` |
+| GET · POST | `/users` |
+| GET · PATCH · DELETE | `/users/:id` |
+
+> **Seluruh endpoint terbuka tanpa autentikasi.** Autentikasi dan manajemen pengguna berada di luar cakupan PoC (dokumen konteks bisnis bagian 13); peran dipilih di halaman `/` frontend, bukan lewat login. Jangan menyalakan instance ini ke jaringan publik.
 
 Dokumentasi interaktif: `make swagger` lalu buka <http://localhost:8080/swagger/index.html> (nonaktif saat `APP_ENV=production`).
 
 ### Contoh
 
 ```bash
-curl -X POST localhost:8080/api/v1/auth/register -H 'Content-Type: application/json' \
-  -d '{"name":"Siti Rahma","email":"siti@verifield.id","password":"rahasia123"}'
+curl localhost:8080/api/v1/users
 
-curl -X POST localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"siti@verifield.id","password":"rahasia123"}'
-
-curl localhost:8080/api/v1/auth/me -H "Authorization: Bearer <access_token>"
+curl -X POST localhost:8080/api/v1/users -H 'Content-Type: application/json' \
+  -d '{"name":"Siti Rahma","email":"siti@verifield.id","password":"rahasia123","role":"client"}'
 ```
 
-Role yang tersedia: `admin` (koordinator operasional), `client`, `inspector`, `cs`. Registrasi publik selalu menghasilkan role `client`. Admin pertama dibuat lewat `make seed` (baca `SEED_ADMIN_*` dari `.env`), yang sekaligus mengisi data contoh.
+Role yang tersedia: `admin` (koordinator operasional), `client`, `inspector`, `cs`. Admin pertama dibuat lewat `make seed` (baca `SEED_ADMIN_*` dari `.env`), yang sekaligus mengisi data contoh.
 
 ## Bentuk response
 
@@ -198,7 +189,7 @@ Pakai [internal/modules/user/](internal/modules/user/) sebagai contoh — isinya
 2. Buat folder `internal/modules/xxx/` berisi empat berkas dengan pola yang sama:
    `xxx.module.go`, `xxx.controller.go`, `xxx.service.go`, `xxx.repository.go`, plus folder `dto/`.
 3. Rakit modulnya di `app.New` (`xxxModule := xxx.NewModule(db)`) dan simpan di struct `Application`.
-4. Tambahkan satu baris `xxxModule.RegisterRoutes(api, authGuard, adminOnly)` di [internal/app/router.go](internal/app/router.go).
+4. Tambahkan satu baris `xxxModule.RegisterRoutes(api)` di [internal/app/router.go](internal/app/router.go).
 
 Aturan yang membuat semuanya konsisten:
 
@@ -212,11 +203,11 @@ Aturan yang membuat semuanya konsisten:
 make test        # go test ./... -race -cover
 ```
 
-[internal/app/smoke_test.go](internal/app/smoke_test.go) berisi contoh test HTTP end-to-end tanpa database: modul auth dipasang dengan stub `user.Service`, lalu diuji lewat `httptest`. Pakai file itu sebagai pola saat menulis test modul lain.
+[internal/app/smoke_test.go](internal/app/smoke_test.go) berisi contoh test HTTP end-to-end tanpa database: modul user dipasang dengan stub `user.Service`, lalu diuji lewat `httptest`. Pakai file itu sebagai pola saat menulis test modul lain.
 
 ## Catatan production
 
-- Ganti `JWT_SECRET` (minimal 32 karakter) — aplikasi menolak start kalau masih memakai nilai default.
+- **Jangan deploy apa adanya.** Seluruh endpoint terbuka tanpa autentikasi; pasang lapisan auth lebih dulu.
 - Jalankan `./bin/migrate up` sebelum menyalakan aplikasi; `ATLAS_DEV_URL` tidak diperlukan di server.
 - Isi `HTTP_ALLOWED_ORIGINS` dengan daftar origin eksplisit, jangan `*`.
 - Set `APP_ENV=production` — Gin masuk release mode dan endpoint Swagger dinonaktifkan.

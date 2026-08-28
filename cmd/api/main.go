@@ -15,15 +15,11 @@ import (
 	_ "verifield-be/docs" // registrasi spesifikasi swagger
 )
 
-// @title						Verifield API
-// @version					1.0
-// @description				REST API ekonomi kreatif — Go + Gin dengan struktur modular ala NestJS.
-// @BasePath					/api/v1
-//
-// @securityDefinitions.apikey	BearerAuth
-// @in							header
-// @name						Authorization
-// @description				Isi dengan "Bearer {access_token}"
+// @title			Verifield API
+// @version		1.0
+// @description	REST API layanan inspeksi & sampling lapangan — Go + Gin dengan struktur modular ala NestJS.
+// @description	Autentikasi di luar cakupan PoC: seluruh endpoint terbuka dan peran dipilih di frontend.
+// @BasePath		/api/v1
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)

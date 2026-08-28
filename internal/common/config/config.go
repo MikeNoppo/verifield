@@ -17,7 +17,6 @@ type Config struct {
 	App      AppConfig
 	HTTP     HTTPConfig
 	Database DatabaseConfig
-	JWT      JWTConfig
 	Seed     SeedConfig
 }
 
@@ -62,21 +61,12 @@ func (d DatabaseConfig) DSN() string {
 	)
 }
 
-type JWTConfig struct {
-	Secret          string
-	Issuer          string
-	AccessTokenTTL  time.Duration
-	RefreshTokenTTL time.Duration
-}
-
 // SeedConfig adalah kredensial admin pertama, dipakai oleh cmd/seeder.
 type SeedConfig struct {
 	AdminName     string
 	AdminEmail    string
 	AdminPassword string
 }
-
-const defaultJWTSecret = "ubah-secret-ini-di-production"
 
 // Load membaca .env (kalau ada) lalu menimpanya dengan environment variable.
 func Load() (*Config, error) {
@@ -125,12 +115,6 @@ func Load() (*Config, error) {
 			ConnMaxLifetime: v.GetDuration("DB_CONN_MAX_LIFETIME"),
 			LogLevel:        v.GetString("DB_LOG_LEVEL"),
 		},
-		JWT: JWTConfig{
-			Secret:          v.GetString("JWT_SECRET"),
-			Issuer:          v.GetString("JWT_ISSUER"),
-			AccessTokenTTL:  v.GetDuration("JWT_ACCESS_TTL"),
-			RefreshTokenTTL: v.GetDuration("JWT_REFRESH_TTL"),
-		},
 		Seed: SeedConfig{
 			AdminName:     v.GetString("SEED_ADMIN_NAME"),
 			AdminEmail:    v.GetString("SEED_ADMIN_EMAIL"),
@@ -168,28 +152,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("DB_CONN_MAX_LIFETIME", "1h")
 	v.SetDefault("DB_LOG_LEVEL", "warn")
 
-	v.SetDefault("JWT_SECRET", defaultJWTSecret)
-	v.SetDefault("JWT_ISSUER", "verifield-be")
-	v.SetDefault("JWT_ACCESS_TTL", "15m")
-	v.SetDefault("JWT_REFRESH_TTL", "168h")
-
 	v.SetDefault("SEED_ADMIN_NAME", "Administrator")
 	v.SetDefault("SEED_ADMIN_EMAIL", "admin@verifield.id")
 }
 
 // validate menangkap salah konfigurasi sedini mungkin (fail fast saat boot).
 func (c *Config) validate() error {
-	if c.JWT.Secret == "" {
-		return errors.New("JWT_SECRET wajib diisi")
-	}
-	if c.App.IsProduction() {
-		if c.JWT.Secret == defaultJWTSecret {
-			return errors.New("JWT_SECRET masih memakai nilai default, wajib diganti di production")
-		}
-		if len(c.JWT.Secret) < 32 {
-			return errors.New("JWT_SECRET minimal 32 karakter di production")
-		}
-	}
 	if c.Database.Name == "" {
 		return errors.New("DB_NAME wajib diisi")
 	}

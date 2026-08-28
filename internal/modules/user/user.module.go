@@ -29,14 +29,16 @@ func NewModule(db *gorm.DB) *Module {
 }
 
 // RegisterRoutes mendaftarkan route modul ini ke router utama.
-// Parameter guard adalah middleware yang dipasang per route,
-// padanan @UseGuards(JwtAuthGuard, RolesGuard).
-func (m *Module) RegisterRoutes(rg *gin.RouterGroup, auth, adminOnly gin.HandlerFunc) {
-	users := rg.Group("/users", auth)
+//
+// WARNING: seluruh route di sini terbuka tanpa guard. Autentikasi berada di luar
+// cakupan PoC (dokumen konteks bisnis bagian 13) dan peran dipilih di frontend,
+// jadi jangan menyalakan instance ini ke jaringan publik.
+func (m *Module) RegisterRoutes(rg *gin.RouterGroup) {
+	users := rg.Group("/users")
 
-	users.GET("", adminOnly, m.Controller.FindAll)
-	users.POST("", adminOnly, m.Controller.Create)
+	users.GET("", m.Controller.FindAll)
+	users.POST("", m.Controller.Create)
 	users.GET("/:id", m.Controller.FindOne)
-	users.PATCH("/:id", adminOnly, m.Controller.Update)
-	users.DELETE("/:id", adminOnly, m.Controller.Remove)
+	users.PATCH("/:id", m.Controller.Update)
+	users.DELETE("/:id", m.Controller.Remove)
 }

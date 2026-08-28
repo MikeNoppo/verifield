@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -19,12 +18,10 @@ import (
 	"verifield-be/internal/common/pagination"
 	"verifield-be/internal/common/response"
 	"verifield-be/internal/common/validation"
-	"verifield-be/internal/modules/auth"
 	"verifield-be/internal/modules/user"
 	userdto "verifield-be/internal/modules/user/dto"
 	"verifield-be/internal/schema"
 	"verifield-be/internal/shared/hash"
-	"verifield-be/internal/shared/jwtx"
 )
 
 // stubUserService menggantikan modul user tanpa database.
@@ -35,7 +32,7 @@ func (s *stubUserService) Create(context.Context, userdto.CreateUserDTO) (*userd
 	return &res, nil
 }
 func (s *stubUserService) FindAll(context.Context, pagination.Query) ([]userdto.UserResponse, response.Meta, error) {
-	return nil, response.Meta{}, nil
+	return []userdto.UserResponse{userdto.ToUserResponse(s.user)}, response.Meta{}, nil
 }
 func (s *stubUserService) FindByID(_ context.Context, id string) (*userdto.UserResponse, error) {
 	if id != s.user.ID.String() {
@@ -86,7 +83,6 @@ func newTestEngine(t *testing.T) (*gin.Engine, *schema.User) {
 	}
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	manager := jwtx.NewManager("secret-uji-yang-cukup-panjang-32ch", "verifield-be", 15*time.Minute, time.Hour)
 
 	engine := gin.New()
 	engine.Use(
@@ -95,14 +91,11 @@ func newTestEngine(t *testing.T) (*gin.Engine, *schema.User) {
 		middleware.ErrorHandler(log),
 	)
 
-	authGuard := middleware.JWTAuth(manager)
-	adminOnly := middleware.RequireRoles(string(schema.RoleAdmin))
-
 	api := engine.Group("/api/v1")
-	auth.NewModule(manager, &stubUserService{user: testUser}).RegisterRoutes(api, authGuard)
-	api.GET("/admin-only", authGuard, adminOnly, func(c *gin.Context) {
-		response.OK(c, "ok", nil)
-	})
+	module := user.NewModule(nil)
+	module.Service = &stubUserService{user: testUser}
+	module.Controller = user.NewController(module.Service)
+	module.RegisterRoutes(api)
 
 	engine.NoRoute(func(c *gin.Context) {
 		response.Error(c, http.StatusNotFound, "NOT_FOUND", "Endpoint tidak ditemukan", nil)
@@ -111,7 +104,7 @@ func newTestEngine(t *testing.T) (*gin.Engine, *schema.User) {
 	return engine, testUser
 }
 
-func do(t *testing.T, engine *gin.Engine, method, path, body, token string) (int, response.Envelope) {
+func do(t *testing.T, engine *gin.Engine, method, path, body string) (int, response.Envelope) {
 	t.Helper()
 
 	var reader io.Reader
@@ -120,9 +113,6 @@ func do(t *testing.T, engine *gin.Engine, method, path, body, token string) (int
 	}
 	req := httptest.NewRequest(method, path, reader)
 	req.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
 
 	rec := httptest.NewRecorder()
 	engine.ServeHTTP(rec, req)
@@ -136,50 +126,41 @@ func do(t *testing.T, engine *gin.Engine, method, path, body, token string) (int
 	return rec.Code, envelope
 }
 
-func login(t *testing.T, engine *gin.Engine) string {
-	t.Helper()
+// Autentikasi berada di luar cakupan PoC dan peran dipilih di frontend, jadi
+// endpoint harus bisa diakses tanpa token sama sekali. Test ini mengunci
+// kontrak tersebut supaya guard tidak diam-diam kembali terpasang.
+func TestEndpointTerbukaTanpaToken(t *testing.T) {
+	engine, testUser := newTestEngine(t)
 
-	status, env := do(t, engine, http.MethodPost, "/api/v1/auth/login",
-		`{"email":"siti@verifield.id","password":"rahasia123"}`, "")
+	status, env := do(t, engine, http.MethodGet, "/api/v1/users/"+testUser.ID.String(), "")
+
 	if status != http.StatusOK {
-		t.Fatalf("login gagal: status=%d body=%+v", status, env)
+		t.Fatalf("mau 200, dapat %d (%+v)", status, env)
 	}
+	if !env.Success {
+		t.Fatalf("mau success=true, dapat %+v", env)
+	}
+}
+
+func TestPasswordTidakPernahBocor(t *testing.T) {
+	engine, testUser := newTestEngine(t)
+
+	_, env := do(t, engine, http.MethodGet, "/api/v1/users/"+testUser.ID.String(), "")
 
 	data, _ := env.Data.(map[string]any)
-	token, _ := data["token"].(map[string]any)
-	accessToken, _ := token["access_token"].(string)
-	if accessToken == "" {
-		t.Fatalf("access_token kosong: %+v", env.Data)
+	if data["email"] != testUser.Email {
+		t.Fatalf("email tidak cocok: %+v", data)
 	}
-	return accessToken
-}
-
-func TestLoginSukses(t *testing.T) {
-	engine, _ := newTestEngine(t)
-	if token := login(t, engine); token == "" {
-		t.Fatal("token kosong")
-	}
-}
-
-func TestLoginPasswordSalah(t *testing.T) {
-	engine, _ := newTestEngine(t)
-
-	status, env := do(t, engine, http.MethodPost, "/api/v1/auth/login",
-		`{"email":"siti@verifield.id","password":"passwordsalah"}`, "")
-
-	if status != http.StatusUnauthorized {
-		t.Fatalf("mau 401, dapat %d", status)
-	}
-	if env.Success || env.Code != "UNAUTHORIZED" {
-		t.Fatalf("envelope error tidak sesuai: %+v", env)
+	if _, leaked := data["password"]; leaked {
+		t.Fatal("password bocor ke response")
 	}
 }
 
 func TestValidasiDTOGagal(t *testing.T) {
 	engine, _ := newTestEngine(t)
 
-	status, env := do(t, engine, http.MethodPost, "/api/v1/auth/register",
-		`{"name":"Si","email":"bukan-email","password":"123"}`, "")
+	status, env := do(t, engine, http.MethodPost, "/api/v1/users",
+		`{"name":"Si","email":"bukan-email","password":"123"}`)
 
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("mau 422, dapat %d", status)
@@ -196,56 +177,34 @@ func TestValidasiDTOGagal(t *testing.T) {
 	}
 }
 
-func TestMeTanpaToken(t *testing.T) {
+func TestRoleDiluarDaftarDitolak(t *testing.T) {
 	engine, _ := newTestEngine(t)
 
-	status, env := do(t, engine, http.MethodGet, "/api/v1/auth/me", "", "")
+	status, env := do(t, engine, http.MethodPost, "/api/v1/users",
+		`{"name":"Siti Rahma","email":"siti@verifield.id","password":"rahasia123","role":"user"}`)
 
-	if status != http.StatusUnauthorized {
-		t.Fatalf("mau 401, dapat %d", status)
-	}
-	if env.Success {
-		t.Fatalf("mau success=false, dapat %+v", env)
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("mau 422 karena role `user` sudah tidak ada, dapat %d (%+v)", status, env)
 	}
 }
 
-func TestMeDenganToken(t *testing.T) {
-	engine, testUser := newTestEngine(t)
-	token := login(t, engine)
-
-	status, env := do(t, engine, http.MethodGet, "/api/v1/auth/me", "", token)
-
-	if status != http.StatusOK {
-		t.Fatalf("mau 200, dapat %d (%+v)", status, env)
-	}
-
-	data, _ := env.Data.(map[string]any)
-	if data["email"] != testUser.Email {
-		t.Fatalf("email tidak cocok: %+v", data)
-	}
-	if _, leaked := data["password"]; leaked {
-		t.Fatal("password bocor ke response")
-	}
-}
-
-func TestRoleGuardMenolakNonAdmin(t *testing.T) {
+func TestUserTidakDitemukan(t *testing.T) {
 	engine, _ := newTestEngine(t)
-	token := login(t, engine)
 
-	status, env := do(t, engine, http.MethodGet, "/api/v1/admin-only", "", token)
+	status, env := do(t, engine, http.MethodGet, "/api/v1/users/"+uuid.New().String(), "")
 
-	if status != http.StatusForbidden {
-		t.Fatalf("mau 403, dapat %d", status)
+	if status != http.StatusNotFound {
+		t.Fatalf("mau 404, dapat %d", status)
 	}
-	if env.Code != "FORBIDDEN" {
-		t.Fatalf("mau code FORBIDDEN, dapat %q", env.Code)
+	if env.Success || env.Code != "NOT_FOUND" {
+		t.Fatalf("envelope error tidak sesuai: %+v", env)
 	}
 }
 
 func TestRouteTidakDikenal(t *testing.T) {
 	engine, _ := newTestEngine(t)
 
-	status, env := do(t, engine, http.MethodGet, "/api/v1/tidak-ada", "", "")
+	status, env := do(t, engine, http.MethodGet, "/api/v1/tidak-ada", "")
 
 	if status != http.StatusNotFound || env.Success {
 		t.Fatalf("mau 404 envelope error, dapat %d %+v", status, env)

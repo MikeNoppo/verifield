@@ -48,9 +48,6 @@ func RequestLogger(log *slog.Logger) gin.HandlerFunc {
 		if query != "" {
 			attrs = append(attrs, "query", query)
 		}
-		if userID, ok := ctxkey.UserID(c); ok {
-			attrs = append(attrs, "user_id", userID)
-		}
 
 		log.Info("http request", attrs...)
 	}

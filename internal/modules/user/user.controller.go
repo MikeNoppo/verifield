@@ -26,7 +26,6 @@ func NewController(service Service) *Controller {
 //	@Description	Mengambil daftar user dengan paginasi, pencarian, dan sorting
 //	@Tags			users
 //	@Produce		json
-//	@Security		BearerAuth
 //	@Param			page		query		int		false	"Halaman"						default(1)
 //	@Param			limit		query		int		false	"Jumlah data per halaman"		default(10)
 //	@Param			search		query		string	false	"Cari berdasarkan nama/email"
@@ -57,7 +56,6 @@ func (ctl *Controller) FindAll(c *gin.Context) {
 //	@Summary	Detail user
 //	@Tags		users
 //	@Produce	json
-//	@Security	BearerAuth
 //	@Param		id	path		string	true	"User ID (UUID)"
 //	@Success	200	{object}	response.Envelope{data=dto.UserResponse}
 //	@Failure	404	{object}	response.Envelope
@@ -78,7 +76,6 @@ func (ctl *Controller) FindOne(c *gin.Context) {
 //	@Tags		users
 //	@Accept		json
 //	@Produce	json
-//	@Security	BearerAuth
 //	@Param		payload	body		dto.CreateUserDTO	true	"Data user"
 //	@Success	201		{object}	response.Envelope{data=dto.UserResponse}
 //	@Failure	409		{object}	response.Envelope
@@ -106,7 +103,6 @@ func (ctl *Controller) Create(c *gin.Context) {
 //	@Tags		users
 //	@Accept		json
 //	@Produce	json
-//	@Security	BearerAuth
 //	@Param		id		path		string				true	"User ID (UUID)"
 //	@Param		payload	body		dto.UpdateUserDTO	true	"Field yang ingin diubah"
 //	@Success	200		{object}	response.Envelope{data=dto.UserResponse}
@@ -133,7 +129,6 @@ func (ctl *Controller) Update(c *gin.Context) {
 //	@Summary	Hapus user
 //	@Tags		users
 //	@Produce	json
-//	@Security	BearerAuth
 //	@Param		id	path	string	true	"User ID (UUID)"
 //	@Success	204	"No Content"
 //	@Failure	404	{object}	response.Envelope
