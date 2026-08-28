@@ -45,6 +45,13 @@ const (
 	// RejectionOutOfOrder dipakai saat pembaruan menuntut status yang bukan
 	// lanjutan sah dari status sekarang (keputusan B-06).
 	RejectionOutOfOrder = "out_of_order"
+	// RejectionPendingApproval menandai pembatalan yang diajukan saat pekerjaan
+	// sudah berjalan: tercatat di riwayat, tetapi belum mengubah status karena
+	// masih menunggu keputusan koordinator (keputusan B-05).
+	RejectionPendingApproval = "pending_approval"
+	// RejectionCancellationRejected menandai permintaan pembatalan yang ditolak
+	// koordinator, sehingga pekerjaan berlanjut.
+	RejectionCancellationRejected = "cancellation_rejected"
 )
 
 // Batas kewajaran waktu kejadian yang dilaporkan perangkat (keputusan B-02).
