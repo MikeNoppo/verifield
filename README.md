@@ -40,6 +40,28 @@ bun run dev          # frontend :3000 dan backend :8080 sekaligus
 Tanpa Docker sama sekali, ganti `bun run db:up` dengan PostgreSQL yang sudah
 terpasang, lalu `createdb verifield`.
 
+## Dokumen
+
+Deliverable A ada di `docs/`. Urutan bacanya dari bisnis ke teknis:
+
+| Dokumen | Isi |
+|---|---|
+| [00-case-study.md](docs/00-case-study.md) | Soal aslinya, disimpan apa adanya sebagai rujukan |
+| [01-business-context.md](docs/01-business-context.md) | Lapisan bisnis: aktor, siklus status, keputusan B-01…B-10, asumsi A-01…A-08 |
+| [02-technical-design.md](docs/02-technical-design.md) | Lapisan teknis: arsitektur, data model, dan bagaimana tiap keputusan bisnis ditegakkan di kode |
+| **[03-deliverable-a.md](docs/03-deliverable-a.md)** | **Deliverable A** — ringkas, memuat sepuluh poin yang diminta soal. Mulai dari sini |
+| [04-panduan-uji.md](docs/04-panduan-uji.md) | Cara mencoba setiap alur dan membuktikan setiap keputusan |
+| [deploy/k8s/README.md](deploy/k8s/README.md) | Keputusan deployment: probe, rolling update, migrasi sebagai Job |
+
+## Basis kode yang dipakai
+
+Backend berdiri di atas **starter template Go milik saya sendiri** (Gin + GORM dengan
+struktur modular ala NestJS dan schema satu berkas ala Prisma). Yang berasal dari starter:
+kerangka modul, envelope response, `apperror` + error handler, validasi DTO, paginasi,
+pipeline migrasi Atlas/goose, dan modul `user`. Seluruh domain Verifield — job order,
+riwayat status, pembatalan, real-time — ditulis untuk case study ini. Frontend dimulai dari
+`create-next-app` dengan komponen shadcn/ui.
+
 ## Asumsi
 
 Seluruh asumsi bisnis dicatat dan diberi alasan di **Deliverable A**,
@@ -63,6 +85,7 @@ adalah kejadian jarang.
 | Laporan terlambat (B-07) | Ditolak setelah status final, dicatat, alert koordinator dibuat |
 | Concurrency (B-09) | Versi basi → 409 beserta penjelasannya |
 | Pembatalan (B-05) | `In Progress` menjadi permintaan; koordinator menolak → pekerjaan lanjut |
+| Pembatalan gugur saat pekerjaan selesai lebih dulu (B-10) | Klien mengajukan batal, inspektor menyelesaikan → status tetap `Completed`, permintaan gugur, koordinator diberi tanda; menyetujuinya → 409 |
 | Kerahasiaan antar klien (A-03) | Order perusahaan lain → 404, bukan 403 |
 | Real-time lintas instance | Klien di port 8080 menerima perubahan yang dikirim lewat port 8081 |
 | Pemulihan event terlewat | Menyambung ulang dengan kursor `seq` → perubahan yang terlewat dikirim ulang |
@@ -82,9 +105,10 @@ dinilai lebih tinggi daripada dua yang setengah jadi.
 
 - **Login di-mock** lewat pemilih peran dan header `X-Actor-Id` (isian dari
   `GET /demo/actors`). Otorisasi per peran tetap ditegakkan di server.
-- **Compose dan Dockerfile:** berhasil di-build; menjalankan seluruh stack di
-  mesin pengembangan tertahan konflik port 3000/8080 dengan project lain —
-  bukan cacat compose. Manifest Kubernetes dan pipeline CI belum pernah dijalankan.
+- **Manifest Kubernetes dan pipeline CI belum pernah dijalankan** pada cluster
+  maupun runner sungguhan — keduanya menuntut cluster dan registry yang belum ada.
+  `docker compose up -d --build` sendiri sudah diverifikasi: seluruh stack menyala
+  sampai sehat, migrasi dan seed berjalan, `/ready` menjawab 200.
 
 ## Known Limitations
 
@@ -96,7 +120,7 @@ dinilai lebih tinggi daripada dua yang setengah jadi.
 | Antrean offline hanya di memori bila `localStorage` diblokir | Laporan hilang bila tab ditutup dalam kondisi itu | IndexedDB, atau Background Sync lewat service worker |
 | Belum ada pembatasan laju | Klien nakal bisa membuka banyak stream | Batas koneksi per aktor di reverse proxy |
 | Alert `late_update_rejected` belum bisa diselesaikan lewat UI | Koordinator melihat tandanya tetapi belum bisa menutupnya | Kolom `resolved_at` sudah ada; tinggal endpoint dan tombolnya |
-| Invarian transaksional belum diuji otomatis | `FOR UPDATE`, idempotensi di bawah beban bersamaan, dan `NOTIFY` transaksional diverifikasi manual | Testcontainers di CI |
+| Invarian transaksional belum diuji otomatis | Aturan bisnisnya diuji lewat fake repository, tetapi perilaku SQL-nya — `FOR UPDATE`, idempotensi di bawah beban bersamaan, `NOTIFY` transaksional — masih diverifikasi manual terhadap Postgres yang berjalan | Testcontainers di CI |
 
 ## API
 
@@ -105,7 +129,8 @@ yang diisi dari `GET /demo/actors`.
 
 | Method | Path | Keterangan |
 |---|---|---|
-| GET | `/health` | Status layanan |
+| GET | `/health` | Liveness — tidak menyentuh dependensi apa pun |
+| GET | `/ready` | Readiness — mem-*ping* database, 503 bila belum terjangkau |
 | GET | `/demo/actors` | Identitas siap pakai per peran — pengganti login |
 | GET | `/inspection-types` | Jenis inspeksi untuk form permintaan |
 | GET | `/inspectors` | Inspektor aktif beserta jumlah penugasan berjalan |
