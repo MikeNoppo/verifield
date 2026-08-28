@@ -1,0 +1,503 @@
+basePath: /api/v1
+definitions:
+  verifield-be_internal_common_apperror.FieldError:
+    properties:
+      field:
+        example: email
+        type: string
+      message:
+        example: email wajib diisi
+        type: string
+    type: object
+  verifield-be_internal_common_response.Envelope:
+    properties:
+      code:
+        type: string
+      data: {}
+      errors:
+        items:
+          $ref: '#/definitions/verifield-be_internal_common_apperror.FieldError'
+        type: array
+      message:
+        type: string
+      meta:
+        $ref: '#/definitions/verifield-be_internal_common_response.Meta'
+      success:
+        type: boolean
+    type: object
+  verifield-be_internal_common_response.Meta:
+    properties:
+      limit:
+        example: 10
+        type: integer
+      page:
+        example: 1
+        type: integer
+      total:
+        example: 42
+        type: integer
+      total_page:
+        example: 5
+        type: integer
+    type: object
+  verifield-be_internal_modules_auth_dto.AuthResponse:
+    properties:
+      token:
+        $ref: '#/definitions/verifield-be_internal_modules_auth_dto.TokenResponse'
+      user:
+        $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+    type: object
+  verifield-be_internal_modules_auth_dto.LoginDTO:
+    properties:
+      email:
+        example: siti@verifield.id
+        type: string
+      password:
+        example: rahasia123
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  verifield-be_internal_modules_auth_dto.RefreshTokenDTO:
+    properties:
+      refresh_token:
+        example: eyJhbGciOi...
+        type: string
+    required:
+    - refresh_token
+    type: object
+  verifield-be_internal_modules_auth_dto.RegisterDTO:
+    properties:
+      email:
+        example: siti@verifield.id
+        maxLength: 160
+        type: string
+      name:
+        example: Siti Rahma
+        maxLength: 120
+        minLength: 3
+        type: string
+      password:
+        example: rahasia123
+        maxLength: 72
+        minLength: 8
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  verifield-be_internal_modules_auth_dto.TokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_at:
+        type: string
+      expires_in:
+        example: 900
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        example: Bearer
+        type: string
+    type: object
+  verifield-be_internal_modules_user_dto.CreateUserDTO:
+    properties:
+      email:
+        example: siti@verifield.id
+        maxLength: 160
+        type: string
+      name:
+        example: Siti Rahma
+        maxLength: 120
+        minLength: 3
+        type: string
+      password:
+        example: rahasia123
+        maxLength: 72
+        minLength: 8
+        type: string
+      role:
+        enum:
+        - admin
+        - user
+        example: user
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  verifield-be_internal_modules_user_dto.UpdateUserDTO:
+    properties:
+      email:
+        example: siti@verifield.id
+        maxLength: 160
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Siti Rahma
+        maxLength: 120
+        minLength: 3
+        type: string
+      password:
+        example: rahasia123
+        maxLength: 72
+        minLength: 8
+        type: string
+      role:
+        enum:
+        - admin
+        - user
+        example: admin
+        type: string
+    type: object
+  verifield-be_internal_modules_user_dto.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        example: siti@verifield.id
+        type: string
+      id:
+        example: 6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: Siti Rahma
+        type: string
+      role:
+        example: user
+        type: string
+      updated_at:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: REST API ekonomi kreatif — Go + Gin dengan struktur modular ala NestJS.
+  title: Verifield API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Kredensial
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_auth_dto.LoginDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_auth_dto.AuthResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Login
+      tags:
+      - auth
+  /auth/me:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Profil user yang sedang login
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh token
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_auth_dto.RefreshTokenDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_auth_dto.TokenResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Perbarui access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Mendaftarkan akun baru dengan role `user` dan langsung menerbitkan
+        token
+      parameters:
+      - description: Data registrasi
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_auth_dto.RegisterDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_auth_dto.AuthResponse'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Registrasi user baru
+      tags:
+      - auth
+  /health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Health check
+      tags:
+      - health
+  /users:
+    get:
+      description: Mengambil daftar user dengan paginasi, pencarian, dan sorting
+      parameters:
+      - default: 1
+        description: Halaman
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Jumlah data per halaman
+        in: query
+        name: limit
+        type: integer
+      - description: Cari berdasarkan nama/email
+        in: query
+        name: search
+        type: string
+      - description: Kolom sorting
+        enum:
+        - created_at
+        - updated_at
+        - name
+        - email
+        - role
+        in: query
+        name: sort_by
+        type: string
+      - description: Arah sorting
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_dir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Daftar user
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Data user
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_user_dto.CreateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+              type: object
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Buat user baru
+      tags:
+      - users
+  /users/{id}:
+    delete:
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Hapus user
+      tags:
+      - users
+    get:
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Detail user
+      tags:
+      - users
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Field yang ingin diubah
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_user_dto.UpdateUserDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_user_dto.UserResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      security:
+      - BearerAuth: []
+      summary: Perbarui user
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: Isi dengan "Bearer {access_token}"
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

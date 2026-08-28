@@ -1,0 +1,19 @@
+# Hot reload untuk development — padanan `nest start --watch`.
+# Install: go install github.com/air-verse/air@latest, lalu jalankan `air`.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ./cmd/api"
+bin = "./tmp/main"
+include_ext = ["go", "tmpl", "html", "env"]
+exclude_dir = ["tmp", "bin", "docs", "vendor"]
+exclude_regex = ["_test\\.go"]
+delay = 300
+stop_on_error = true
+
+[log]
+time = true
+
+[misc]
+clean_on_exit = true
