@@ -36,6 +36,13 @@ type Repository interface {
 
 	FindAll(ctx context.Context, query dto.ListQuery) ([]schema.JobOrder, map[uuid.UUID]dto.Derived, int64, error)
 	FindByID(ctx context.Context, id uuid.UUID) (*schema.JobOrder, dto.Derived, error)
+
+	// FindByIDCompact sama dengan FindByID tetapi tanpa riwayat status.
+	// Dipakai jalur real-time, yang mengirim satu pesan ke setiap klien pada
+	// setiap perubahan — menyertakan riwayat di sana membuat ukuran pesan
+	// tumbuh seiring umur order, dan seluruh riwayat dikirim ulang berkali-kali
+	// hanya karena satu entri bertambah.
+	FindByIDCompact(ctx context.Context, id uuid.UUID) (*schema.JobOrder, dto.Derived, error)
 	FindEvents(ctx context.Context, orderID uuid.UUID, afterSeq int64) ([]schema.JobStatusEvent, error)
 
 	// OrderIDsChangedSince mengembalikan id order yang punya event lebih baru
@@ -237,6 +244,21 @@ func (r *gormRepository) FindByID(ctx context.Context, id uuid.UUID) (*schema.Jo
 		}).
 		First(&order, "id = ?", id).Error
 	if err != nil {
+		return nil, dto.Derived{}, err
+	}
+
+	result := derivedForOne(r, ctx, order.ID)
+	if result.err != nil {
+		return nil, dto.Derived{}, result.err
+	}
+
+	return &order, result.derived, nil
+}
+
+func (r *gormRepository) FindByIDCompact(ctx context.Context, id uuid.UUID) (*schema.JobOrder, dto.Derived, error) {
+	var order schema.JobOrder
+
+	if err := withRelations(r.db.WithContext(ctx)).First(&order, "id = ?", id).Error; err != nil {
 		return nil, dto.Derived{}, err
 	}
 

@@ -140,8 +140,15 @@ func (s *service) findVisible(ctx context.Context, actor Actor, id string) (*sch
 	return order, derived, nil
 }
 
+// Snapshot menyusun keadaan terkini satu order TANPA riwayatnya.
+//
+// Riwayat sengaja tidak ikut: pesan real-time dikirim ke setiap klien pada
+// setiap perubahan, dan menyertakan seluruh riwayat di sana berarti mengirim
+// ulang data yang sudah dimiliki klien berkali-kali. Layar detail melengkapi
+// timeline-nya lewat GET /orders/{id}/events?after_seq=, yang hanya mengirim
+// selisihnya.
 func (s *service) Snapshot(ctx context.Context, orderID uuid.UUID) (*dto.JobOrderResponse, error) {
-	order, derived, err := s.repo.FindByID(ctx, orderID)
+	order, derived, err := s.repo.FindByIDCompact(ctx, orderID)
 	if err != nil {
 		return nil, err
 	}
