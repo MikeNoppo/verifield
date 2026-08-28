@@ -118,6 +118,32 @@ satu kolom yang ditimpa.
 menuntut penanganan khusus. Itu sebabnya `current_status` ada sebagai cache —
 ditulis hanya di transaksi yang sama dengan penyisipan event-nya.
 
+### Invarian status final
+
+`Completed`, `Failed`, dan `Cancelled` tidak punya transisi keluar. Tabel transisi
+menegakkannya untuk laporan lapangan, tetapi tabel itu **tidak dilewati semua jalur
+tulis**: pembatalan dan keputusan atas permintaan pembatalan menulis status secara
+langsung, dan koreksi koordinator memang sengaja melewatinya (B-06).
+
+Satu jalur karena itu sempat lolos. Permintaan pembatalan yang diajukan saat
+`In Progress` menunggu keputusan koordinator, sementara pekerjaan di lapangan tetap
+berjalan. Bila inspektor menyelesaikannya lebih dulu, permintaan itu tetap terbuka —
+dan menyetujuinya memindahkan order dari `Completed` kembali ke `Cancelled`.
+
+Perbaikannya bukan menambahkan satu pemeriksaan di jalur keputusan, melainkan
+menegakkan invarian yang lebih kuat: **order berstatus final tidak pernah menyisakan
+permintaan pembatalan yang terbuka.** `closePendingCancellation` dipanggil dari setiap
+jalur tulis yang dapat membuat order menjadi final — laporan lapangan, pembatalan
+langsung, dan koreksi koordinator — sehingga panel keputusan di layar koordinator ikut
+hilang dengan sendirinya. Pemeriksaan pada jalur keputusan tetap ada sebagai lapis
+kedua, karena status final tidak boleh dibuka kembali oleh jalur mana pun, bukan hanya
+oleh jalur yang kebetulan sudah dijaga (keputusan B-10).
+
+Penggugurannya dicatat sebagai entri riwayat ber-`accepted = false` dengan
+`rejection_reason = cancellation_obsolete`, disertai alert bagi koordinator — alasannya
+sama dengan B-07: ada pekerjaan nyata dan permintaan nyata yang bertabrakan, dan
+menelan salah satunya tanpa penjelasan akan mengembalikan penyelesaiannya ke telepon.
+
 ---
 
 ## 3. Jawaban atas Pertanyaan Desain

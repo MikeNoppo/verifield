@@ -134,7 +134,31 @@ sebagai inspektor itu, tekan **Berangkat**, lalu kembali ke `/klien` dan batalka
    pembatalannya ditolak.
 3. Ulangi dengan order lain → **Setujui** → status `Cancelled`, biaya ditentukan koordinator.
 
-### 2.5 Alert laporan terlambat (B-07)
+### 2.5 Pembatalan yang gugur karena pekerjaan selesai lebih dulu (B-10)
+
+Skenario paling halus di sistem ini: klien meminta pembatalan, inspektor tidak
+mengetahuinya, dan pekerjaannya selesai sebelum koordinator sempat memutuskan.
+
+1. Ajukan pembatalan sebagai klien atas order yang berstatus `In Progress` (§1.5).
+2. Tanpa menyentuh layar `/ops`, buka `/lapangan` sebagai inspektor order tersebut
+   dan tekan **Selesai**.
+3. Buka kembali order itu di `/ops`. **Hasil:**
+   - status tetap `Completed` — status final tidak dibuka kembali;
+   - panel keputusan pembatalan **sudah tidak ada**, karena permintaannya gugur;
+   - timeline menampilkan tiga entri berurutan: pembatalan diajukan (tidak
+     diterapkan) → `Completed` (diterapkan) → permintaan pembatalan gugur (tidak
+     diterapkan);
+   - koordinator diberi tanda untuk menyelesaikan aspek komersialnya.
+
+Lewat API, menyetujui permintaan yang sudah gugur dijawab 409 beserta alasannya:
+
+```bash
+curl -s -X POST localhost:8080/api/v1/orders/$ORDER/cancellations/$REQ/decide   -H "X-Actor-Id: $ADMIN" -H 'Content-Type: application/json'   -d '{"decision":"approve"}'
+# → 409 "Pekerjaan sudah selesai sebelum permintaan ini sempat diputuskan,
+#        sehingga permintaannya gugur."
+```
+
+### 2.6 Alert laporan terlambat (B-07)
 
 1. Di `/ops`, order "Tangki timbun T-401" tampil dengan tanda perhatian.
 2. Buka detailnya: timeline menampilkan entri `Completed` berlabel **ditolak —
@@ -261,8 +285,9 @@ curl -s -H "X-Actor-Id: $ACTOR" "$BASE/orders/<id>/events?after_seq=0" | jq
 | B-04 inspektor tak bisa membatalkan | Tidak ada tombol batal di `/lapangan`; `Failed` ber-alasan | §3 |
 | B-05 pembatalan jadi permintaan | "Ajukan Pembatalan" + keputusan koordinator | §1.5, §2.4 |
 | B-06 hanya maju, koreksi resmi | Transisi mundur ditolak; koreksi beralasan | §5, §2.3 |
-| B-07 terlambat tetap dicatat | Entri ditolak + alert di `/ops` | §2.5, §5 |
+| B-07 terlambat tetap dicatat | Entri ditolak + alert di `/ops` | §2.6, §5 |
 | B-09 perubahan pertama menang | 409 + penjelasan di tab kedua | §2.2 |
+| B-10 permintaan pembatalan gugur | Status final tetap; panel keputusan hilang; entri gugur + alert | §2.5 |
 | A-03 kerahasiaan antar klien | Order perusahaan lain → 404 | §1.2 |
 | Batas baca inspektor | Order bukan tugasnya → 404, daftar tersaring server | §3.2 |
 | SSE + missed events | Tab berubah tanpa refresh; reconnect mengirim ulang | §3.3, §4 |

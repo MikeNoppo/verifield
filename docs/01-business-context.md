@@ -232,9 +232,14 @@ KLIEN mengajukan pembatalan
   └── status In Progress
          └──► BUKAN pembatalan langsung.
               Menjadi permintaan pembatalan yang menunggu keputusan koordinator.
+              Selama menunggu, pekerjaan di lapangan TETAP BERJALAN.
               │
               ├─ koordinator setuju ──► Cancelled
-              └─ koordinator tolak ───► kembali berjalan sebagai In Progress
+              ├─ koordinator tolak ───► kembali berjalan sebagai In Progress
+              └─ inspektor menyelesaikan pekerjaan lebih dulu
+                    └──► permintaan gugur, status tetap Completed,
+                         koordinator diberi tanda untuk menyelesaikan
+                         aspek komersialnya (keputusan B-10)
 ```
 
 ### Alur inspektor kehilangan sinyal
@@ -378,6 +383,31 @@ Koordinator kedua menerima penolakan disertai penjelasan bahwa data telah beruba
 
 ---
 
+**B-10 — Permintaan pembatalan gugur bila pekerjaan mencapai status final lebih dulu**
+
+Selama permintaan pembatalan menunggu keputusan koordinator, pekerjaan di lapangan tetap
+berjalan. Inspektor bisa saja menyelesaikannya sebelum koordinator sempat memutuskan —
+terlebih bila inspektor sedang offline dan tidak mengetahui adanya permintaan tersebut.
+
+Ketika itu terjadi, permintaan pembatalan **gugur**. Status tidak berubah, dan koordinator
+tidak lagi dapat menyetujuinya.
+
+*Alasan:* menyetujui pembatalan atas pekerjaan yang sudah selesai berarti memindahkan order
+keluar dari status final, padahal `Completed`, `Failed`, dan `Cancelled` tidak memiliki
+transisi keluar (bagian 7). Membiarkannya berarti riwayat menyatakan pekerjaan selesai pada
+pukul 11.05 lalu dibatalkan pada pukul 11.20 — dan dokumen yang lahir dari riwayat itu
+menjadi tidak dapat dipertahankan bila dipersengketakan.
+
+Namun menggugurkannya secara diam-diam juga keliru, dengan alasan yang sama seperti B-07:
+ada dua fakta nyata yang bertabrakan — pekerjaan benar-benar dikerjakan, dan klien benar-benar
+meminta pembatalan. Karena itu penggugurannya dicatat pada riwayat, dan koordinator diberi
+tanda agar dapat menyelesaikan aspek komersialnya dengan klien.
+
+*Kasus khusus:* apabila yang menutup order justru pembatalan oleh koordinator, permintaan
+klien tersebut **terpenuhi**, bukan gugur — klien menerima persis apa yang ia minta.
+
+---
+
 ## 11. Matriks Kewenangan Pembatalan
 
 | Status saat ini | Klien | Koordinator | Inspektor | Konsekuensi komersial |
@@ -405,6 +435,7 @@ Koordinator kedua menerima penolakan disertai penjelasan bahwa data telah beruba
 | Klien membuka sistem di dua tab sekaligus | Kedua tab menampilkan data berbeda, klien tidak tahu mana yang benar | Kedua tab menerima pembaruan yang sama, dan keduanya menampilkan indikator koneksi | F-01 |
 | Order tidak menunjukkan pembaruan selama delapan jam pada hari kerja | Kemungkinan inspektor lupa memperbarui, dan klien akan menelepon | Koordinator diberi tanda agar dapat menindaklanjuti sebelum klien bertanya | Bagian 4 |
 | Inspektor salah menekan "Selesai" padahal baru tiba | Data laporan salah, klien menerima informasi keliru | Koordinator mengoreksi dengan alasan, tercatat sebagai entri baru | B-06, F-06 |
+| Klien mengajukan pembatalan saat `In Progress`, inspektor menyelesaikan pekerjaan sebelum koordinator memutuskan | Menyetujui pembatalan akan membuka kembali status final, dan riwayat menjadi tidak dapat dipertahankan | Permintaan gugur, status tetap `Completed`, penggugurannya tercatat, koordinator diberi tanda | B-10 |
 | Jam pada perangkat inspektor tidak akurat | Waktu kejadian keliru dan merusak urutan riwayat | Waktu kejadian di luar batas kewajaran ditolak, waktu penerimaan dipakai sebagai cadangan | B-02 |
 
 ---
