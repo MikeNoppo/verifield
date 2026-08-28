@@ -272,7 +272,77 @@ penggunanya tanpa penjelasan akan ditinggalkan penggunanya (B-07).
 
 ---
 
-## 10. What's Next — bila diberi 2 minggu
+## 10. Infrastructure & Delivery
+
+Diimplementasikan: `Dockerfile` multi-stage untuk kedua sisi, `docker-compose.yml` untuk
+seluruh stack, manifest Kubernetes di [deploy/k8s/](../deploy/k8s/), dan pipeline CI
+di [.github/workflows/ci.yml](../.github/workflows/ci.yml). Yang berikut ini adalah
+alasan di balik keputusannya.
+
+**Kemasan.** Build multi-stage: toolchain Go dan `node_modules` tinggal di stage build,
+yang keluar hanya binary statis (`CGO_ENABLED=0`) di atas Alpine — image backend 121 MB,
+frontend 216 MB. Kontainer berjalan sebagai UID non-root 10001 dengan
+`readOnlyRootFilesystem` dan seluruh capability di-*drop*. Satu image berisi tiga binary
+(`api`, `migrate`, `seeder`), sehingga migrasi dan aplikasi mustahil berbeda versi.
+
+**Environment variable.** Tidak ada nilai lingkungan yang ikut ke dalam image. Konfigurasi
+tak rahasia masuk lewat `ConfigMap`, kredensial lewat `Secret` — dan di produksi `Secret`
+itu datang dari External Secrets / Sealed Secrets, tidak pernah dari repositori. Nilai yang
+ada di `deploy/k8s/00-config.yaml` adalah contoh, dan ditandai demikian. `.env.example`
+menjadi daftar variabel yang dibutuhkan; aplikasi gagal cepat saat start bila ada yang kurang.
+
+**Health check vs readiness probe.** Dua endpoint berbeda, dan perbedaannya disengaja:
+
+| Probe | Endpoint | Menyentuh database? |
+|---|---|---|
+| `livenessProbe` | `/health` | **Tidak** — hanya memastikan proses tidak menggantung |
+| `readinessProbe` | `/ready` | Ya — `ping` dengan batas 2 detik, menjawab 503 bila gagal |
+
+Kalau liveness ikut memeriksa database, database yang sedang bermasalah membuat kubelet
+membunuh dan menyalakan ulang seluruh pod berulang kali — memperparah keadaan alih-alih
+memulihkannya. Yang benar: pod tetap hidup, tetapi dikeluarkan dari Service sampai
+databasenya terjangkau kembali.
+
+**Zero-downtime.** `maxUnavailable: 0` dengan `maxSurge: 1` — pod baru harus lolos
+readiness sebelum pod lama dimatikan. Satu hal khas sistem ini: **stream SSE terbuka
+berjam-jam**, sehingga `terminationGracePeriodSeconds` diberi 45 detik agar pod lama
+sempat menutup koneksinya dengan rapi. Klien lalu menyambung ulang sendiri dan memulihkan
+perubahan yang terlewat lewat kursor `seq` — rilis tidak menghilangkan satu pun perubahan,
+hanya menunda kedatangannya beberapa detik. Fan-out lewat `LISTEN/NOTIFY` Postgres berarti
+tidak ada sticky session yang perlu dijaga saat pod berganti.
+
+**Migrasi dan rollback.** Migrasi berjalan sebagai `Job` ber-hook `PreSync`, bukan
+`initContainer` — initContainer berarti tiga replika menjalankan migrasi bersamaan dan
+berebut tabel versi goose, sedangkan Job berjalan tepat sekali per rilis.
+
+Rollback aplikasi sendiri murah: image di-tag per commit SHA, `kubectl rollout undo` cukup.
+Yang mahal adalah rollback skema, dan itu tidak diselesaikan oleh perkakas melainkan oleh
+disiplin: **migrasi harus backward-compatible terhadap versi sebelumnya** (pola
+expand/contract — tambah kolom dan tulis ganda dulu, hapus kolom lama pada rilis
+berikutnya). Dengan begitu versi lama masih berjalan di atas skema baru, dan rollback tidak
+pernah menuntut migrasi turun di produksi. `migrations_test.go` menjaga setiap berkas migrasi
+tetap punya blok `-- +goose Down`, tetapi blok itu untuk pemulihan darurat — bukan jalur
+rilis normal.
+
+**CI.** Tiga job paralel — backend (`gofmt` → `go vet` → `go test -race` → build), kontrak
+(regenerate lalu tolak bila berbeda dari yang ter-commit), frontend (lint → typecheck →
+test → build) — lalu build image hanya setelah ketiganya lolos. Belum ada push ke registry:
+kredensialnya milik lingkungan yang belum ada, dan yang dijaga di sini adalah Dockerfile-nya
+tetap dapat dibangun.
+
+**Yang belum ada, dan disadari:** Ingress dan TLS (bergantung ingress controller),
+HorizontalPodAutoscaler (jumlah koneksi SSE terbuka adalah metrik yang lebih tepat daripada
+CPU untuk beban seperti ini, dan itu menuntut metrics adapter tersendiri), NetworkPolicy,
+serta Postgres di dalam cluster — database bersifat stateful dan menuntut StatefulSet
+beserta PVC, pembahasan tersendiri yang tidak menambah pemahaman tentang aplikasinya.
+Manifest Kubernetes dan pipeline CI belum pernah benar-benar dijalankan pada cluster maupun
+runner — keduanya menuntut cluster dan registry yang belum ada. `docker compose up -d --build`
+sudah diverifikasi: seluruh stack menyala sampai sehat, migrasi dan seed berjalan, dan
+`/ready` menjawab 200.
+
+---
+
+## 11. What's Next — bila diberi 2 minggu
 
 1. **Autentikasi dan wewenang yang sungguhan** (JWT + cookie sesi). Bukan karena dinilai,
    tetapi karena setiap keputusan lain sudah menganggapnya ada. Cookie sekaligus menghapus
