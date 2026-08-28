@@ -205,6 +205,7 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 		Seq                   int64
 		CancellationRequested bool
 		HasOpenAlert          bool
+		ExitStatus            *string
 	}
 
 	err := r.db.WithContext(ctx).Raw(`
@@ -214,10 +215,14 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 		       EXISTS (SELECT 1 FROM cancellation_requests c
 		                WHERE c.job_order_id = jo.id AND c.status = ?) AS cancellation_requested,
 		       EXISTS (SELECT 1 FROM job_order_alerts a
-		                WHERE a.job_order_id = jo.id AND a.resolved_at IS NULL) AS has_open_alert
+		                WHERE a.job_order_id = jo.id AND a.resolved_at IS NULL) AS has_open_alert,
+		       (SELECT e.to_status FROM job_status_events e
+		         WHERE e.job_order_id = jo.id AND e.accepted = true
+		           AND e.to_status NOT IN ?
+		         ORDER BY e.seq DESC LIMIT 1) AS exit_status
 		  FROM job_orders jo
 		 WHERE jo.id IN ?
-	`, schema.CancellationPending, ids).Scan(&rows).Error
+	`, schema.CancellationPending, finalStatuses(), ids).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +232,7 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 			Seq:                   row.Seq,
 			CancellationRequested: row.CancellationRequested,
 			HasOpenAlert:          row.HasOpenAlert,
+			ExitStatus:            row.ExitStatus,
 		}
 	}
 	return result, nil

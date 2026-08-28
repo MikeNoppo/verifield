@@ -135,6 +135,14 @@ type JobOrderResponse struct {
 	CancellationRequested bool `json:"cancellation_requested"`
 	HasOpenAlert          bool `json:"has_open_alert"`
 
+	// Tahap terjauh yang sempat dicapai sebelum order berakhir. Untuk order yang
+	// masih berjalan nilainya sama dengan current_status; untuk yang dibatalkan
+	// atau gagal, inilah yang menjawab "sejauh mana sempat berjalan".
+	//
+	// Dihitung server karena daftar order sengaja tidak membawa riwayat, dan
+	// justru di daftar itulah pertanyaan tersebut paling sering muncul.
+	ExitStatus *string `json:"exit_status"`
+
 	// Hanya terisi pada endpoint detail. Koordinator butuh id-nya untuk
 	// memutuskan, dan alasannya untuk memutuskan dengan benar.
 	PendingCancellation *PendingCancellation `json:"pending_cancellation,omitempty"`
@@ -190,6 +198,7 @@ func ToJobOrderResponse(o *schema.JobOrder, derived Derived) JobOrderResponse {
 		Seq:                   derived.Seq,
 		CancellationRequested: derived.CancellationRequested,
 		HasOpenAlert:          derived.HasOpenAlert,
+		ExitStatus:            derived.ExitStatus,
 		PendingCancellation:   derived.PendingCancellation,
 		CreatedAt:             o.CreatedAt,
 		UpdatedAt:             o.UpdatedAt,
@@ -224,6 +233,7 @@ type Derived struct {
 	Seq                   int64
 	CancellationRequested bool
 	HasOpenAlert          bool
+	ExitStatus            *string
 	PendingCancellation   *PendingCancellation
 }
 
