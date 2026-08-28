@@ -35,6 +35,16 @@ function inputValue(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** Jam kerja lapangan. Di luar rentang ini tidak ada inspektor maupun pihak
+    ketiga di lokasi, sehingga jadwalnya tidak mungkin dieksekusi. */
+const JAM_MULAI = 8
+const JAM_SELESAI = 17
+
+function dalamJamKerja(d: Date): boolean {
+  const jam = d.getHours()
+  return jam >= JAM_MULAI && jam <= JAM_SELESAI
+}
+
 export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
   const actor = useActor()
   const router = useRouter()
@@ -55,6 +65,11 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
     const mulai = new Date(String(form.get("jadwal")))
+
+    if (!Number.isFinite(mulai.getTime()) || !dalamJamKerja(mulai)) {
+      setGalat("Jadwal hanya dapat dipilih pada jam kerja, pukul 08.00–17.00.")
+      return
+    }
 
     setKirim(true)
     setGalat(null)
@@ -183,7 +198,8 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
                 required
               />
               <FieldDescription>
-                Jadwal dapat bergeser mengikuti kesiapan pihak ketiga di lokasi.
+                Jadwal dapat bergeser mengikuti kesiapan pihak ketiga di lokasi. Pemilihan
+                terbatas pada jam kerja, pukul 08.00–17.00.
               </FieldDescription>
             </Field>
           </FieldGroup>
