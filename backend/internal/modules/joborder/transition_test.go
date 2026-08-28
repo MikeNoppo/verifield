@@ -101,7 +101,7 @@ func TestWaktuKejadianDijepitSaatJamPerangkatMeleset(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.nama, func(t *testing.T) {
-			got, adjusted := joborder.ClampOccurredAt(c.occurred, received)
+			got, adjusted := joborder.ClampOccurredAt(c.occurred, received, time.Time{})
 
 			if adjusted != c.mauDisetel {
 				t.Fatalf("adjusted = %v, mau %v", adjusted, c.mauDisetel)
@@ -117,6 +117,29 @@ func TestWaktuKejadianDijepitSaatJamPerangkatMeleset(t *testing.T) {
 				t.Errorf("saat tidak disetel, waktu asli harus dipertahankan; dapat %v", got)
 			}
 		})
+	}
+}
+
+func TestWaktuKejadianTidakBolehMendahuluiOrdernya(t *testing.T) {
+	// Laporan tidak mungkin terjadi sebelum ordernya ada. Tanpa batas ini, jam
+	// perangkat yang meleset beberapa jam menempatkan "tiba di lokasi" sebelum
+	// "order diminta", dan riwayat yang menjadi bukti perselisihan jadi tidak
+	// masuk akal.
+	dibuat := time.Date(2026, 8, 28, 12, 0, 0, 0, time.UTC)
+	received := dibuat.Add(30 * time.Minute)
+
+	got, adjusted := joborder.ClampOccurredAt(dibuat.Add(-2*time.Hour), received, dibuat)
+	if !adjusted {
+		t.Error("waktu sebelum order dibuat seharusnya ditandai disesuaikan")
+	}
+	if !got.Equal(dibuat) {
+		t.Errorf("waktu = %v, mau dijepit ke waktu order dibuat %v", got, dibuat)
+	}
+
+	sesudah := dibuat.Add(10 * time.Minute)
+	got, adjusted = joborder.ClampOccurredAt(sesudah, received, dibuat)
+	if adjusted || !got.Equal(sesudah) {
+		t.Errorf("waktu sesudah order dibuat harus dipertahankan; dapat %v (adjusted=%v)", got, adjusted)
 	}
 }
 

@@ -347,7 +347,7 @@ func (s *service) SubmitEvent(ctx context.Context, actor Actor, id string, input
 		if input.OccurredAt != nil {
 			reported = input.OccurredAt.UTC()
 		}
-		occurredAt, adjusted := ClampOccurredAt(reported, receivedAt)
+		occurredAt, adjusted := ClampOccurredAt(reported, receivedAt, order.CreatedAt)
 
 		from := order.CurrentStatus
 		to := schema.JobStatus(input.ToStatus)

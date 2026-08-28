@@ -80,7 +80,13 @@ const (
 // yang sedang online memang tidak perlu mengirimnya, dan menandainya sebagai
 // disesuaikan akan memunculkan peringatan palsu pada riwayat yang dibaca klien.
 // Penanda ini hanya berarti "waktu yang dilaporkan perangkat tidak dipakai".
-func ClampOccurredAt(occurredAt, receivedAt time.Time) (time.Time, bool) {
+//
+// notBefore adalah batas bawah tambahan dari domain: laporan tidak mungkin
+// terjadi sebelum ordernya ada. Tanpa batas ini, satu jam perangkat yang meleset
+// beberapa jam bisa menempatkan "tiba di lokasi" sebelum "order diminta", dan
+// riwayat yang dibaca klien menjadi tidak masuk akal — padahal justru riwayat
+// itulah yang menjadi bukti bila kemudian terjadi perselisihan.
+func ClampOccurredAt(occurredAt, receivedAt, notBefore time.Time) (time.Time, bool) {
 	if occurredAt.IsZero() {
 		return receivedAt, false
 	}
@@ -89,6 +95,9 @@ func ClampOccurredAt(occurredAt, receivedAt time.Time) (time.Time, bool) {
 	}
 	if occurredAt.Before(receivedAt.Add(-maxBacklogAge)) {
 		return receivedAt, true
+	}
+	if !notBefore.IsZero() && occurredAt.Before(notBefore) {
+		return notBefore, true
 	}
 	return occurredAt, false
 }
