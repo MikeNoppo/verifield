@@ -67,14 +67,9 @@ func NewService(repo Repository, users UserFinder) Service {
 func (s *service) List(ctx context.Context, actor Actor, query dto.ListQuery) ([]dto.JobOrderResponse, response.Meta, error) {
 	query.Normalize(SortableColumns, "status_changed_at")
 
-	// Asumsi A-03: klien hanya melihat order milik perusahaannya. Saringan
-	// dipaksakan di sini, bukan dipercayakan pada query string, supaya
-	// kerahasiaan komersial antar klien tidak bergantung pada perilaku frontend.
-	if actor.Role == schema.RoleClient {
-		if actor.CompanyID == nil {
-			return nil, response.Meta{}, apperror.Forbidden("Akun klien ini belum terhubung ke perusahaan mana pun")
-		}
-		query.CompanyID = actor.CompanyID.String()
+	query, err := ScopeQuery(actor, query)
+	if err != nil {
+		return nil, response.Meta{}, err
 	}
 
 	orders, derived, total, err := s.repo.FindAll(ctx, query)
@@ -114,7 +109,7 @@ func (s *service) Events(ctx context.Context, actor Actor, id string, afterSeq i
 
 // findVisible memuat order sekaligus menegakkan batas kepemilikan.
 //
-// Order milik perusahaan lain dijawab "tidak ditemukan", bukan "tidak boleh":
+// Order di luar batas dijawab "tidak ditemukan", bukan "tidak boleh":
 // membedakan keduanya membocorkan keberadaan order milik klien lain, yang
 // justru merupakan informasi komersial (asumsi A-03).
 func (s *service) findVisible(ctx context.Context, actor Actor, id string) (*schema.JobOrder, dto.Derived, error) {
@@ -131,10 +126,8 @@ func (s *service) findVisible(ctx context.Context, actor Actor, id string) (*sch
 		return nil, dto.Derived{}, err
 	}
 
-	if actor.Role == schema.RoleClient {
-		if actor.CompanyID == nil || order.CompanyID != *actor.CompanyID {
-			return nil, dto.Derived{}, apperror.NotFound("Job order tidak ditemukan")
-		}
+	if !VisibleTo(actor, order) {
+		return nil, dto.Derived{}, apperror.NotFound("Job order tidak ditemukan")
 	}
 
 	return order, derived, nil
@@ -326,7 +319,7 @@ func (s *service) SubmitEvent(ctx context.Context, actor Actor, id string, input
 		if err != nil {
 			return err
 		}
-		if order.InspectorID == nil || *order.InspectorID != actor.ID {
+		if !VisibleTo(actor, order) {
 			return apperror.Forbidden("Order ini tidak ditugaskan kepada Anda")
 		}
 
@@ -462,10 +455,11 @@ func (s *service) Cancel(ctx context.Context, actor Actor, id string, input dto.
 		if err != nil {
 			return err
 		}
-		if actor.Role == schema.RoleClient {
-			if actor.CompanyID == nil || order.CompanyID != *actor.CompanyID {
-				return apperror.NotFound("Job order tidak ditemukan")
-			}
+		// Batas baca berlaku lebih dulu daripada wewenang membatalkan: menjawab
+		// "tidak berwenang" atau "sudah selesai" untuk order yang tak boleh
+		// dilihat membocorkan keberadaan dan statusnya (asumsi A-03).
+		if !VisibleTo(actor, order) {
+			return apperror.NotFound("Job order tidak ditemukan")
 		}
 		if input.ExpectedVersion != nil {
 			if err := ensureVersion(order, *input.ExpectedVersion); err != nil {
