@@ -32,6 +32,16 @@ func RequireActor(users UserLoader) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.GetHeader(HeaderActorID)
 		if id == "" {
+			// EventSource di browser tidak bisa memasang header sama sekali,
+			// sehingga stream SSE tidak punya cara lain menyebutkan identitas.
+			//
+			// WARNING: identitas di query string ikut tercatat di log akses dan
+			// riwayat peramban. Pada sistem sungguhan ini ditangani cookie
+			// sesi — yang justru terkirim otomatis oleh EventSource. Jalur ini
+			// ada karena PoC memang tidak punya sesi sama sekali.
+			id = c.Query("actor_id")
+		}
+		if id == "" {
 			c.Error(apperror.Unauthorized( //nolint:errcheck
 				"Header " + HeaderActorID + " wajib diisi. Autentikasi berada di luar cakupan PoC, sehingga peran dipilih di frontend.",
 			))
