@@ -4,19 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environment gotchas
 
-- **Go is not on the default PATH.** It lives at `/home/coder/.local/go/bin` (go1.26.6). Prefix commands with `export PATH=$PATH:/home/coder/.local/go/bin` or they fail with `command not found`.
+- **This package lives at `backend/` inside a monorepo.** The frontend sits beside it at `frontend/`, and `docs/` at the repo root is the shared business specification. Run every command in this file from `backend/`.
 - **`make` is not installed.** The Makefile documents the intended workflow, but you must run the underlying `go` commands directly.
-- **No PostgreSQL, no Docker, no `psql`.** Anything touching a real database — running the server, `migrate up`, the seeder, `atlas migrate diff` — cannot be executed here. Say so explicitly rather than claiming it works.
+- **PostgreSQL runs in Docker, not natively; there is no `psql` binary.** Start it with `docker compose up -d postgres` from the repo root before anything that touches a database — the server, `migrate up`, the seeder, `atlas migrate diff`. To run SQL, go through the container (`docker compose exec postgres psql ...`).
+- **Atlas is not installed.** Needed only to *generate* migrations. Install with `go install ariga.io/atlas/cmd/atlas@latest`, or fall back to `go run ./cmd/atlas-loader`, which prints the full DDL offline so a goose file can be written by hand.
 - `swag` is installed at `~/go/bin/swag`.
 
 ## Commands
 
 ```bash
-export PATH=$PATH:/home/coder/.local/go/bin:$HOME/go/bin
-
 go build ./... && go vet ./... && gofmt -l .   # gofmt -l prints offenders; empty = clean
 go test ./...                                  # runs without a database
-go test ./internal/app/ -run TestLoginSukses -v # single test
+go test ./internal/app/ -run TestValidasiDTOGagal -v # single test
 
 go run ./cmd/atlas-loader                       # prints the DDL from schema.go — works offline, no DB
 swag init -g cmd/api/main.go -o docs --parseDependency --parseInternal
