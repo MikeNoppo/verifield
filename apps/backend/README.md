@@ -1,6 +1,28 @@
-# Verifield BE
+# Verifield — Backend
 
-REST API layanan inspeksi & sampling lapangan dengan **Go + [Gin](https://github.com/gin-gonic/gin) + GORM (PostgreSQL)**, disusun memakai struktur modular ala **NestJS** — tiap fitur berdiri sendiri di satu folder berisi controller, service, repository, dan DTO. Schema database terpusat di satu file ala **Prisma**.
+REST API pelacakan job order inspeksi lapangan. **Go + [Gin](https://github.com/gin-gonic/gin) + GORM (PostgreSQL)**, disusun memakai struktur modular ala **NestJS** — tiap fitur berdiri sendiri di satu folder berisi controller, service, repository, dan DTO. Schema database terpusat di satu berkas ala **Prisma**.
+
+Kerangka ini berasal dari starter template pribadi; seluruh domain Verifield ditulis untuk case study ini. Rinciannya di [README repositori](../../README.md#basis-kode-yang-dipakai).
+
+Keputusan bisnis yang ditegakkan di sini bernomor `B-01`…`B-10` dan dijelaskan di
+[docs/01-business-context.md](../../docs/01-business-context.md); cara masing-masing
+ditegakkan di kode ada di [docs/02-technical-design.md](../../docs/02-technical-design.md).
+
+## Menjalankan
+
+Cara termudah adalah lewat compose dari akar repositori (`docker compose up -d --build`),
+yang sekaligus menjalankan migrasi dan seed. Untuk menjalankan backend langsung di mesin:
+
+```bash
+cp .env.example .env      # sesuaikan DB_*, isi SEED_ADMIN_PASSWORD
+docker compose up -d postgres   # dari akar repo — Postgres tidak dipasang natif
+go run ./cmd/migrate up   # buat tabel   (~ prisma migrate deploy)
+go run ./cmd/seeder       # data contoh  (~ prisma db seed)
+go run ./cmd/api          # :8080
+```
+
+> `make` tidak terpasang di lingkungan pengembangan ini. Makefile tetap ada sebagai
+> dokumentasi perintah, tetapi jalankan perintah `go` di atas secara langsung.
 
 ## Peta konsep NestJS → project ini
 
@@ -10,13 +32,11 @@ REST API layanan inspeksi & sampling lapangan dengan **Go + [Gin](https://github
 | `app.module.ts` | [internal/app/app.go](internal/app/app.go) |
 | `xxx.module.ts` | `internal/modules/xxx/xxx.module.go` |
 | `xxx.controller.ts` | `internal/modules/xxx/xxx.controller.go` |
-| `xxx.service.ts` | `internal/modules/xxx/xxx.service.go` |
 | Repository TypeORM | `internal/modules/xxx/xxx.repository.go` |
 | `dto/*.dto.ts` + class-validator | `internal/modules/xxx/dto/*.dto.go` + tag `binding:"..."` |
-| `schema.prisma` (Prisma) | [internal/schema/schema.go](internal/schema/schema.go) — semua tabel dalam satu file |
+| `schema.prisma` | [internal/schema/schema.go](internal/schema/schema.go) — semua tabel dalam satu berkas |
 | `TransformInterceptor` | [internal/common/response](internal/common/response/response.go) |
 | `HttpException` + `ExceptionFilter` | [apperror](internal/common/apperror/apperror.go) + [error_handler.go](internal/common/middleware/error_handler.go) |
-| `ConfigModule` | [internal/common/config](internal/common/config/config.go) |
 | `ValidationPipe` | [httpx.Bind*](internal/common/httpx/bind.go) + [validation](internal/common/validation/validation.go) |
 
 ## Struktur folder
@@ -25,61 +45,56 @@ REST API layanan inspeksi & sampling lapangan dengan **Go + [Gin](https://github
 cmd/
   api/                      entrypoint aplikasi
   migrate/                  penerap migrasi (goose, migrasi ter-embed)
-  seeder/                   pembuat admin pertama
+  seeder/                   pembuat admin pertama + data contoh
   atlas-loader/             pencetak DDL dari schema, dipanggil Atlas
 internal/
-  app/                      AppModule: perakitan modul + router global
+  app/                      perakitan modul + router global
   common/                   infrastruktur lintas modul
     config/ database/ logger/
     apperror/ response/ validation/ httpx/ pagination/
-    middleware/             recovery, request logger, CORS, error handler
-  schema/                   SCHEMA DATABASE — semua tabel & relasi dalam satu file
+    middleware/             recovery, request logger, CORS, error handler, actor
+  schema/                   SCHEMA DATABASE — semua tabel & relasi dalam satu berkas
   modules/
-    user/                   modul user — CRUD lengkap, pakai sebagai template modul baru
+    joborder/               inti domain: order, riwayat status, pembatalan, koreksi
+    realtime/               hub SSE + listener LISTEN/NOTIFY
+    reference/              data acuan: jenis inspeksi, inspektor, aktor demo
+    user/                   CRUD user — juga contoh pola modul
   shared/                   hash, ctxkey
 migrations/                 berkas migrasi SQL (ter-embed ke binary)
-docs/                       spesifikasi Swagger (hasil generate)
-atlas.hcl                   konfigurasi generate migrasi
+docs/                       spesifikasi Swagger (hasil generate, ter-commit)
 ```
-
-## Menjalankan
-
-```bash
-cp .env.example .env      # sesuaikan DB_*
-go mod tidy
-make migrate-up           # buat tabel  (~ prisma migrate deploy)
-make seed                 # buat admin pertama  (~ prisma db seed)
-make run                  # atau: go run ./cmd/api
-```
-
-Butuh PostgreSQL aktif. Schema **tidak** lagi dibuat otomatis saat startup — lihat [Migrasi](#migrasi).
-
-Perintah lain: `make help`.
 
 ## Endpoint
 
-Global prefix `/api/v1`.
+Global prefix `/api/v1`, kecuali `/health` dan `/ready` yang juga tersedia di akar
+untuk probe Kubernetes.
 
-| Method | Path |
-|---|---|
-| GET | `/health` |
-| GET · POST | `/users` |
-| GET · PATCH · DELETE | `/users/:id` |
+| Method | Path | Keterangan |
+|---|---|---|
+| GET | `/health` | Liveness — sengaja tidak menyentuh dependensi apa pun |
+| GET | `/ready` | Readiness — mem-*ping* database, 503 bila belum terjangkau |
+| GET | `/demo/actors` | Identitas siap pakai per peran — pengganti login |
+| GET | `/inspection-types` · `/inspectors` | Data acuan untuk form dan penugasan |
+| GET · POST | `/orders` | Daftar order (tersaring peran) · buat permintaan inspeksi |
+| GET | `/orders/{id}` | Detail beserta riwayat status |
+| GET | `/orders/{id}/events?after_seq=` | Riwayat sejak kursor tertentu |
+| POST | `/orders/{id}/events` | Pembaruan status dari lapangan — **idempoten** (B-03) |
+| POST | `/orders/{id}/assign` | Tugaskan inspektor — butuh `expected_version` (B-09) |
+| POST | `/orders/{id}/cancel` | Batalkan atau ajukan pembatalan (B-05) |
+| POST | `/orders/{id}/cancellations/{reqId}/decide` | Putuskan permintaan pembatalan |
+| POST | `/orders/{id}/corrections` | Koreksi status — wajib beralasan (B-06) |
+| GET | `/stream?last_event_id=` | **SSE** — perubahan order, disaring menurut peran |
+| GET · POST · PATCH · DELETE | `/users`, `/users/{id}` | CRUD user |
 
-> **Seluruh endpoint terbuka tanpa autentikasi.** Autentikasi dan manajemen pengguna berada di luar cakupan PoC (dokumen konteks bisnis bagian 13); peran dipilih di halaman `/` frontend, bukan lewat login. Jangan menyalakan instance ini ke jaringan publik.
+> **Tidak ada autentikasi.** Identitas datang dari header `X-Actor-Id` yang diisi dari
+> `GET /demo/actors` — autentikasi dinyatakan di luar cakupan oleh soal. **Otorisasinya
+> tetap ditegakkan di server:** klien hanya melihat order perusahaannya (404, bukan 403),
+> inspektor hanya order yang ditugaskan kepadanya, inspektor tidak berwenang membatalkan
+> (B-04), CS hanya membaca, koreksi hanya oleh koordinator. Rancangan penggantinya ada di
+> [dokumen teknis bagian 4](../../docs/02-technical-design.md). Jangan menyalakan instance
+> ini ke jaringan publik.
 
-Dokumentasi interaktif: `make swagger` lalu buka <http://localhost:8080/swagger/index.html> (nonaktif saat `APP_ENV=production`).
-
-### Contoh
-
-```bash
-curl localhost:8080/api/v1/users
-
-curl -X POST localhost:8080/api/v1/users -H 'Content-Type: application/json' \
-  -d '{"name":"Siti Rahma","email":"siti@verifield.id","password":"rahasia123","role":"client"}'
-```
-
-Role yang tersedia: `admin` (koordinator operasional), `client`, `inspector`, `cs`. Admin pertama dibuat lewat `make seed` (baca `SEED_ADMIN_*` dari `.env`), yang sekaligus mengisi data contoh.
+Dokumentasi interaktif: `go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -g cmd/api/main.go -o docs --parseDependency --parseInternal`, lalu buka <http://localhost:8080/swagger/index.html> (nonaktif saat `APP_ENV=production`).
 
 ## Bentuk response
 
@@ -87,7 +102,7 @@ Semua endpoint memakai envelope yang sama.
 
 ```jsonc
 // sukses
-{ "success": true, "message": "Login berhasil", "data": { } }
+{ "success": true, "message": "...", "data": { } }
 
 // list berpaginasi
 { "success": true, "message": "...", "data": [], "meta": { "page": 1, "limit": 10, "total": 42, "total_page": 5 } }
@@ -99,115 +114,56 @@ Semua endpoint memakai envelope yang sama.
 
 Endpoint list menerima `?page=&limit=&search=&sort_by=&sort_dir=`. Kolom `sort_by` difilter whitelist (`SortableColumns` di tiap repository) agar aman dari SQL injection.
 
-## Schema database
+## Aturan yang menjaga konsistensi
 
-Seluruh schema ada di **satu file**: [internal/schema/schema.go](internal/schema/schema.go) — padanan `schema.prisma`. Semua tabel, kolom, index, dan relasi terkumpul di sana, tidak tersebar per modul.
+- **Controller tidak pernah membentuk response error sendiri** — cukup `c.Error(err); return`, `ErrorHandler` yang mengurus sisanya. Service mengembalikan `apperror.NotFound(...)`, `apperror.Conflict(...)`, dan seterusnya; error tak dikenal jadi 500 tanpa membocorkan detail internal.
+- **Aktor diserahkan eksplisit sebagai parameter** ke service, bukan digali dari context di dalamnya. Itulah yang membuat aturan bisnis bisa diuji tanpa gin, dan yang membuat penggantian header `X-Actor-Id` dengan JWT nanti tidak menyentuh satu pun service.
+- **Repository selalu dipakai lewat interface**, sehingga service bisa diuji dengan fake — lihat [cancellation_test.go](internal/modules/joborder/cancellation_test.go).
+- **`current_status` adalah cache, bukan sumber kebenaran** (B-01). Ia hanya boleh ditulis di transaksi yang sama dengan penyisipan event ber-`accepted = true`.
 
-```go
-type User struct {
-    ID    uuid.UUID `gorm:"type:uuid;primaryKey"`
-    Email string    `gorm:"type:varchar(160);not null;uniqueIndex"`
-    Role  Role      `gorm:"type:varchar(20);not null;default:client"`
-}
-```
+## Schema dan migrasi
 
-Struct di file ini adalah **sumber kebenaran**; perubahannya diterjemahkan jadi file SQL bernomor lewat [Migrasi](#migrasi) di bawah.
-
-Relasi ditulis di file yang sama, jadi kedua sisinya terlihat berdampingan:
-
-```go
-// belongs-to
-OwnerID uuid.UUID `gorm:"type:uuid;not null;index"`
-Owner   *User     `gorm:"foreignKey:OwnerID;constraint:OnDelete:CASCADE"`
-
-// has-many
-Products []Product `gorm:"foreignKey:OwnerID"`
-
-// many-to-many
-Tags []Tag `gorm:"many2many:product_tags"`
-```
-
-Relasi **tidak** ikut ter-load otomatis. Minta eksplisit di repository — padanan `include` di Prisma:
-
-```go
-db.Preload("Owner").Find(&products)
-```
-
-## Migrasi
+Seluruh schema ada di **satu berkas**: [internal/schema/schema.go](internal/schema/schema.go) — padanan `schema.prisma`. Struct di berkas itu adalah **sumber kebenaran**; perubahannya diterjemahkan menjadi berkas SQL bernomor.
 
 Pembagian tugasnya: **Atlas meng-generate** SQL dari `schema.go`, **goose menerapkannya**.
 
 | Prisma | Di sini |
 |---|---|
-| `prisma migrate dev --name add_products` | `make migrate-diff name=add_products` |
-| `prisma migrate deploy` | `make migrate-up` (di server: `./bin/migrate up`) |
-| `prisma migrate status` | `make migrate-status` |
-| rollback | `make migrate-down` |
-| `prisma db seed` | `make seed` |
+| `prisma migrate dev --name add_x` | `atlas migrate diff add_x --env gorm` |
+| `prisma migrate deploy` | `go run ./cmd/migrate up` |
+| `prisma db seed` | `go run ./cmd/seeder` |
 
-Atlas **tidak pernah menyentuh database production** — ia hanya membaca `schema.go`, memutar ulang berkas di [migrations/](migrations/) pada sebuah dev database kosong, lalu menulis selisihnya sebagai berkas baru. Yang menyentuh production hanya `bin/migrate`, dan berkas migrasinya sudah **ter-embed di dalam binary** ([migrations/embed.go](migrations/embed.go)) — jadi server tidak perlu Atlas, tidak perlu folder `migrations/`, dan tidak perlu Go toolchain.
+Atlas **tidak pernah menyentuh database production** — ia hanya membaca `schema.go`, memutar ulang berkas di [migrations/](migrations/) pada sebuah dev database kosong, lalu menulis selisihnya sebagai berkas baru. Yang menyentuh production hanya `cmd/migrate`, dan berkas migrasinya **ter-embed di dalam binary** ([migrations/embed.go](migrations/embed.go)) — server tidak perlu Atlas, tidak perlu folder `migrations/`, dan tidak perlu Go toolchain.
 
-### Persiapan sekali saja
+Migrasi sengaja **tidak** dijalankan otomatis saat aplikasi start, supaya beberapa instance yang menyala bersamaan tidak saling berebut mengubah schema. Di Kubernetes ia berjalan sebagai `Job`, bukan `initContainer` — alasannya di [deploy/k8s/README.md](../../deploy/k8s/README.md).
 
-```bash
-go install ariga.io/atlas/cmd/atlas@latest
-createdb verifield_dev      # dev database KOSONG, terpisah dari database aplikasi
-                            # lalu isi ATLAS_DEV_URL di .env
-atlas migrate hash --env gorm   # buat atlas.sum untuk migrasi baseline
-```
-
-### Alur harian
-
-```bash
-# 1. ubah internal/schema/schema.go
-# 2. generate migrasinya
-make migrate-diff name=add_products
-# 3. baca berkas SQL yang muncul di migrations/, pastikan blok Down-nya benar
-# 4. terapkan & commit
-make migrate-up
-```
-
-Kalau Anda mengedit berkas migrasi dengan tangan, jalankan `make migrate-hash` supaya checksum `atlas.sum` kembali cocok.
-
-### Urutan deploy
-
-```bash
-make build          # bin/verifield-be, bin/migrate, bin/seeder
-./bin/migrate up    # ~ prisma migrate deploy
-./bin/verifield-be  # start
-```
-
-Migrasi sengaja **tidak** dijalankan otomatis saat aplikasi start, supaya beberapa instance yang menyala bersamaan tidak saling berebut mengubah schema.
-
-> Atlas menghitung rollback secara dinamis, sedangkan goose membacanya dari blok `-- +goose Down` di berkas. Kalau hasil generate ternyata tidak menyertakan blok itu, tulis sendiri lalu jalankan `make migrate-hash`. [migrations/migrations_test.go](migrations/migrations_test.go) menjaga hal ini — `make test` akan gagal kalau ada migrasi tanpa blok `Down`.
-
-## Menambah modul baru
-
-Pakai [internal/modules/user/](internal/modules/user/) sebagai contoh — isinya CRUD lengkap dengan paginasi, pencarian, dan sorting.
-
-1. Tambahkan tabelnya di [internal/schema/schema.go](internal/schema/schema.go), daftarkan di `All()`, lalu `make migrate-diff name=add_xxx`.
-2. Buat folder `internal/modules/xxx/` berisi empat berkas dengan pola yang sama:
-   `xxx.module.go`, `xxx.controller.go`, `xxx.service.go`, `xxx.repository.go`, plus folder `dto/`.
-3. Rakit modulnya di `app.New` (`xxxModule := xxx.NewModule(db)`) dan simpan di struct `Application`.
-4. Tambahkan satu baris `xxxModule.RegisterRoutes(api)` di [internal/app/router.go](internal/app/router.go).
-
-Aturan yang membuat semuanya konsisten:
-
-- Controller **tidak** membentuk response error sendiri — cukup `c.Error(err); return`, `ErrorHandler` yang mengurus sisanya.
-- Business logic mengembalikan `apperror.NotFound(...)`, `apperror.Conflict(...)`, dan seterusnya; error tak dikenal otomatis jadi 500 tanpa membocorkan detail internal.
-- Repository selalu dipakai lewat interface supaya service mudah di-mock saat test.
+Atlas tidak terpasang di lingkungan ini. Untuk melihat DDL tanpa database: `go run ./cmd/atlas-loader`.
 
 ## Testing
 
+Seluruh suite berjalan **tanpa database**:
+
 ```bash
-make test        # go test ./... -race -cover
+go build ./... && go vet ./... && gofmt -l .   # gofmt -l: keluaran kosong = rapi
+go test ./...
 ```
 
-[internal/app/smoke_test.go](internal/app/smoke_test.go) berisi contoh test HTTP end-to-end tanpa database: modul user dipasang dengan stub `user.Service`, lalu diuji lewat `httptest`. Pakai file itu sebagai pola saat menulis test modul lain.
+| Berkas | Yang dijaga |
+|---|---|
+| [transition_test.go](internal/modules/joborder/transition_test.go) | Tabel transisi hanya maju; tidak ada jalan keluar dari status final; batas kewajaran `occurred_at` (B-02, B-06) |
+| [visibility_test.go](internal/modules/joborder/visibility_test.go) | Batas baca per peran, dipakai jalur baca maupun jalur siaran (A-03) |
+| [cancellation_test.go](internal/modules/joborder/cancellation_test.go) | Permintaan pembatalan tidak pernah menggantung pada order final, dan status final tidak dapat dibuka kembali (B-10) |
+| [hub_test.go](internal/modules/realtime/hub_test.go) | Fan-out SSE dan pemulihan kursor |
+| [smoke_test.go](internal/app/smoke_test.go) | Rantai middleware, envelope validasi, password tidak pernah bocor |
+| [migrations_test.go](migrations/migrations_test.go) | Setiap migrasi punya blok `-- +goose Down` yang tidak kosong |
 
-## Catatan production
+Yang **belum** diuji otomatis: perilaku SQL-nya sendiri — `SELECT … FOR UPDATE`, idempotensi di bawah beban bersamaan, dan sifat transaksional `NOTIFY`. Ketiganya diverifikasi manual terhadap Postgres yang berjalan; Testcontainers di CI adalah langkah berikutnya.
 
-- **Jangan deploy apa adanya.** Seluruh endpoint terbuka tanpa autentikasi; pasang lapisan auth lebih dulu.
-- Jalankan `./bin/migrate up` sebelum menyalakan aplikasi; `ATLAS_DEV_URL` tidak diperlukan di server.
-- Isi `HTTP_ALLOWED_ORIGINS` dengan daftar origin eksplisit, jangan `*`.
-- Set `APP_ENV=production` — Gin masuk release mode dan endpoint Swagger dinonaktifkan.
+## Menambah modul baru
+
+Pakai [internal/modules/user/](internal/modules/user/) sebagai contoh — CRUD lengkap dengan paginasi, pencarian, dan sorting.
+
+1. Tambahkan tabelnya di [internal/schema/schema.go](internal/schema/schema.go), daftarkan di `All()`, lalu generate migrasinya.
+2. Buat folder `internal/modules/xxx/` berisi `xxx.module.go`, `xxx.controller.go`, `xxx.service.go`, `xxx.repository.go`, plus folder `dto/`.
+3. Rakit modulnya di `app.New` ([internal/app/app.go](internal/app/app.go)).
+4. Tambahkan satu baris `xxxModule.RegisterRoutes(api)` di [internal/app/router.go](internal/app/router.go).
