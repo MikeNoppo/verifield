@@ -2,8 +2,6 @@ import Link from "next/link"
 import { ArrowRightIcon, BriefcaseIcon, HardHatIcon, LayoutDashboardIcon } from "lucide-react"
 
 import { ThemeToggle } from "@/components/verifield/theme-toggle"
-import { Badge } from "@/components/ui/badge"
-import { SCENARIO_INDEX } from "@/lib/mock/seed"
 
 const PERSONA = [
   {
@@ -70,34 +68,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section>
-        <h2 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Skenario tidak ideal
-        </h2>
-        <p className="mb-3 max-w-xl text-xs leading-relaxed text-muted-foreground">
-          Setiap skenario di bagian 12 dokumen bisnis diwakili satu order nyata pada data contoh,
-          bukan sekadar diceritakan. Klik untuk melihatnya langsung.
-        </p>
-
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-          {SCENARIO_INDEX.map((s) => (
-            <li key={s.ref}>
-              <Link
-                href={`/${s.role}/order/${s.ref.toLowerCase()}`}
-                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-              >
-                <span className="tabular font-mono text-xs text-muted-foreground">{s.ref}</span>
-                <span className="min-w-0 flex-1 text-sm">{s.title}</span>
-                <Badge variant="outline" className="shrink-0 font-mono text-[10px]">
-                  {s.decision}
-                </Badge>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <footer className="mt-10 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
+      <footer className="mt-auto border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
         Autentikasi berada di luar cakupan, sehingga peran diwakili pemilih peran di kanan atas —
         bukan login. Data bersifat contoh dan dihitung relatif terhadap satu titik waktu tetap.
       </footer>
