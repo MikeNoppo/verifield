@@ -29,10 +29,17 @@ export type ListQuery = {
   attention?: string
 }
 
-/** Alamat backend dilihat dari browser. Server Component memakai nilai yang sama
-    karena keduanya berjalan di jaringan yang sama pada PoC ini. */
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1"
+
+const SERVER_API_BASE_URL = process.env.API_SERVER_BASE_URL
+
+function baseUrl(): string {
+  if (typeof window === "undefined" && SERVER_API_BASE_URL) {
+    return SERVER_API_BASE_URL
+  }
+  return API_BASE_URL
+}
 
 /** Header identitas pengganti autentikasi. Backend memuatnya menjadi user
     sungguhan, sehingga peran dan kepemilikan tetap ditegakkan di server. */
@@ -76,7 +83,7 @@ export type FetchOptions = RequestInit & { actorId?: string }
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const { actorId, headers, ...init } = options
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${baseUrl()}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -106,7 +113,7 @@ export async function apiFetchList<T>(
 ): Promise<{ data: T; total: number }> {
   const { actorId, headers, ...init } = options
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${baseUrl()}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
