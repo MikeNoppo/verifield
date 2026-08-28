@@ -25,7 +25,14 @@ Regenerate Swagger whenever controller annotations change; `docs/` is committed.
 
 ## Language convention
 
-Code comments, commit messages, and all user-facing strings (API messages, validation errors, CLI output) are written in **Indonesian**. Match this — do not introduce English strings into the response envelope or error messages.
+Two languages, one rule each — never mixed inside a single word:
+
+- **Identifiers are English.** Types, functions, variables, struct fields, API keys, and enum values. This includes test helpers and locals.
+- **Prose is Indonesian.** Code comments, commit messages, documentation, and every user-facing string: API messages, validation errors, CLI output.
+
+The one deliberate overlap: **Go test function names stay Indonesian** (`TestMatriksKewenanganPembatalan`). They are read as sentences in `go test` output, which makes them prose that Go merely requires to be spelled as an identifier — the same choice the frontend makes with `test("...")` descriptions.
+
+Do not introduce English strings into the response envelope or error messages, and do not introduce Indonesian identifiers.
 
 ## Architecture
 

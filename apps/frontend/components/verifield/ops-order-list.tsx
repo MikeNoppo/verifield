@@ -28,7 +28,7 @@ import {
 } from "@/lib/domain/summary"
 import { hasOpenAlert, isStale, needsAssignment } from "@/lib/domain/status"
 import type { Inspector, JobOrder } from "@/lib/domain/types"
-import { sejak } from "@/lib/format"
+import { relativeTime } from "@/lib/format"
 
 const ATTENTION = [
   {
@@ -188,7 +188,7 @@ export function OpsOrderList({
                         basi ? "font-medium text-attention" : "text-muted-foreground",
                       )}
                     >
-                      {sejak(o.statusChangedAt, now)}
+                      {relativeTime(o.statusChangedAt, now)}
                     </TableCell>
 
                     <TableCell className="align-middle text-right">

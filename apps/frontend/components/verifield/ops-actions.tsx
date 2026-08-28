@@ -34,7 +34,7 @@ import type {
   SettlementOutcome,
   Status,
 } from "@/lib/domain/types"
-import { tanggalLengkap } from "@/lib/format"
+import { formatFullDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 /** Koreksi wajib beralasan dan tercatat sebagai entri baru, bukan menghapus
@@ -42,57 +42,57 @@ import { cn } from "@/lib/utils"
     ke basis data dan seluruh nilai jejak audit hilang (B-06, F-06). */
 export function CorrectionDialog({ order }: { order: JobOrder }) {
   const actor = useActor()
-  const terapkan = useApplyResult()
+  const applyToStore = useApplyResult()
 
   const [open, setOpen] = React.useState(false)
-  const [tujuan, setTujuan] = React.useState<string>(order.status)
-  const [alasan, setAlasan] = React.useState("")
-  const [kirim, setKirim] = React.useState(false)
-  const [selesai, setSelesai] = React.useState(false)
-  const [galat, setGalat] = React.useState<string | null>(null)
+  const [target, setTarget] = React.useState<string>(order.status)
+  const [reason, setReason] = React.useState("")
+  const [submitting, setSubmitting] = React.useState(false)
+  const [done, setDone] = React.useState(false)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
-  function tutup(next: boolean) {
+  function handleOpenChange(next: boolean) {
     setOpen(next)
     if (!next) {
-      setSelesai(false)
-      setGalat(null)
-      setAlasan("")
+      setDone(false)
+      setErrorMessage(null)
+      setReason("")
     }
   }
 
-  async function simpan() {
-    setKirim(true)
-    setGalat(null)
+  async function save() {
+    setSubmitting(true)
+    setErrorMessage(null)
     try {
-      const terbaru = await correctStatus(
+      const latest = await correctStatus(
         actor.id,
         order.id,
-        tujuan as Status,
-        alasan.trim(),
+        target as Status,
+        reason.trim(),
         order.version,
       )
-      terapkan(terbaru)
-      setSelesai(true)
+      applyToStore(latest)
+      setDone(true)
     } catch (error) {
-      setGalat(
+      setErrorMessage(
         error instanceof ApiError
           ? error.message
           : "Koreksi tidak dapat dikirim. Periksa koneksi Anda lalu coba lagi.",
       )
     } finally {
-      setKirim(false)
+      setSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={tutup}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
         <PencilLineIcon data-icon="inline-start" />
         Koreksi Status
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
-        {selesai ? (
+        {done ? (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -100,7 +100,7 @@ export function CorrectionDialog({ order }: { order: JobOrder }) {
                 Koreksi tercatat
               </DialogTitle>
               <DialogDescription>
-                {order.ref} dikembalikan ke {STATUS_LABEL[tujuan as Status]}. Entri lama tetap
+                {order.ref} dikembalikan ke {STATUS_LABEL[target as Status]}. Entri lama tetap
                 utuh pada riwayat, dan koreksi ini muncul sebagai entri baru beserta alasannya.
               </DialogDescription>
             </DialogHeader>
@@ -121,9 +121,9 @@ export function CorrectionDialog({ order }: { order: JobOrder }) {
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium">Kembalikan ke</label>
-                <Select value={tujuan} onValueChange={(v) => setTujuan(String(v))}>
+                <Select value={target} onValueChange={(v) => setTarget(String(v))}>
                   <SelectTrigger className="w-full">
-                    <SelectValue>{STATUS_LABEL[tujuan as Status]}</SelectValue>
+                    <SelectValue>{STATUS_LABEL[target as Status]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {PIPELINE.filter((s) => s !== order.status).map((s) => (
@@ -142,16 +142,16 @@ export function CorrectionDialog({ order }: { order: JobOrder }) {
                 <Textarea
                   id="alasan-koreksi"
                   rows={3}
-                  value={alasan}
-                  onChange={(e) => setAlasan(e.target.value)}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
                   placeholder="Contoh: inspektor menghubungi koordinator, tombol Selesai tertekan tidak sengaja."
                   className="text-sm"
                 />
               </div>
 
-              {galat ? (
+              {errorMessage ? (
                 <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs leading-relaxed">
-                  {galat}
+                  {errorMessage}
                 </p>
               ) : null}
             </div>
@@ -159,10 +159,10 @@ export function CorrectionDialog({ order }: { order: JobOrder }) {
             <DialogFooter>
               <DialogClose render={<Button variant="secondary" />}>Batal</DialogClose>
               <Button
-                disabled={kirim || alasan.trim().length < 8 || tujuan === order.status}
-                onClick={simpan}
+                disabled={submitting || reason.trim().length < 8 || target === order.status}
+                onClick={save}
               >
-                {kirim ? <Spinner /> : null}
+                {submitting ? <Spinner /> : null}
                 Simpan Koreksi
               </Button>
             </DialogFooter>
@@ -203,27 +203,27 @@ function SettlementReview({
   request: PendingCancellation
 }) {
   const actor = useActor()
-  const terapkan = useApplyResult()
+  const applyToStore = useApplyResult()
 
-  const [hasil, setHasil] = React.useState<SettlementOutcome | null>(null)
-  const [catatan, setCatatan] = React.useState("")
-  const [kirim, setKirim] = React.useState(false)
-  const [galat, setGalat] = React.useState<string | null>(null)
+  const [result, setResult] = React.useState<SettlementOutcome | null>(null)
+  const [note, setNote] = React.useState("")
+  const [submitting, setSubmitting] = React.useState(false)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
-  async function simpan() {
-    if (!hasil) return
-    setKirim(true)
-    setGalat(null)
+  async function save() {
+    if (!result) return
+    setSubmitting(true)
+    setErrorMessage(null)
     try {
-      terapkan(await settleCancellation(actor.id, order.id, request.id, hasil, catatan.trim()))
+      applyToStore(await settleCancellation(actor.id, order.id, request.id, result, note.trim()))
     } catch (error) {
-      setGalat(
+      setErrorMessage(
         error instanceof ApiError
           ? error.message
           : "Keputusan tidak dapat dikirim. Periksa koneksi Anda lalu coba lagi.",
       )
     } finally {
-      setKirim(false)
+      setSubmitting(false)
     }
   }
 
@@ -244,7 +244,7 @@ function SettlementReview({
       <div className="rounded-lg border border-border bg-background px-3 py-2">
         <p className="text-xs leading-relaxed">{request.reason}</p>
         <p className="tabular mt-1.5 text-[11px] text-muted-foreground">
-          Diajukan {request.requestedByName} · {tanggalLengkap(request.createdAt)}
+          Diajukan {request.requestedByName} · {formatFullDateTime(request.createdAt)}
         </p>
       </div>
 
@@ -255,10 +255,10 @@ function SettlementReview({
             <button
               key={h.value}
               type="button"
-              onClick={() => setHasil(h.value)}
+              onClick={() => setResult(h.value)}
               className={cn(
                 "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
-                hasil === h.value
+                result === h.value
                   ? "border-attention bg-attention/10"
                   : "border-border bg-background hover:bg-muted/50",
               )}
@@ -277,8 +277,8 @@ function SettlementReview({
         <Textarea
           id="catatan-penyelesaian"
           rows={2}
-          value={catatan}
-          onChange={(e) => setCatatan(e.target.value)}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
           placeholder="Contoh: disepakati lewat telepon dengan Ibu Dewi, ditagih separuh biaya kunjungan."
           className="text-sm"
         />
@@ -287,15 +287,15 @@ function SettlementReview({
         </p>
       </div>
 
-      {galat ? (
+      {errorMessage ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs leading-relaxed">
-          {galat}
+          {errorMessage}
         </p>
       ) : null}
 
       <div>
-        <Button size="sm" disabled={kirim || !hasil || catatan.trim().length < 8} onClick={simpan}>
-          {kirim ? <Spinner /> : null}
+        <Button size="sm" disabled={submitting || !result || note.trim().length < 8} onClick={save}>
+          {submitting ? <Spinner /> : null}
           Catat Penyelesaian
         </Button>
       </div>
@@ -326,27 +326,27 @@ function PembatalanReview({
   request: PendingCancellation
 }) {
   const actor = useActor()
-  const terapkan = useApplyResult()
+  const applyToStore = useApplyResult()
 
-  const [kirim, setKirim] = React.useState<"approve" | "reject" | null>(null)
-  const [galat, setGalat] = React.useState<string | null>(null)
+  const [submitting, setSubmitting] = React.useState<"approve" | "reject" | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
   async function putuskan(decision: "approve" | "reject") {
-    setKirim(decision)
-    setGalat(null)
+    setSubmitting(decision)
+    setErrorMessage(null)
     try {
-      terapkan(await decideCancellation(actor.id, order.id, request.id, decision))
+      applyToStore(await decideCancellation(actor.id, order.id, request.id, decision))
       // Hasilnya tidak ditampilkan sebagai layar konfirmasi tersendiri: begitu
       // store diperbarui, panel ini hilang dan riwayat di sebelahnya bertambah
       // satu entri. Itu umpan balik yang lebih jujur daripada kalimat sukses.
     } catch (error) {
-      setGalat(
+      setErrorMessage(
         error instanceof ApiError
           ? error.message
           : "Keputusan tidak dapat dikirim. Periksa koneksi Anda lalu coba lagi.",
       )
     } finally {
-      setKirim(null)
+      setSubmitting(null)
     }
   }
 
@@ -366,13 +366,13 @@ function PembatalanReview({
       <div className="rounded-lg border border-border bg-background px-3 py-2">
         <p className="text-xs leading-relaxed">{request.reason}</p>
         <p className="tabular mt-1.5 text-[11px] text-muted-foreground">
-          {request.requestedByName} · {tanggalLengkap(request.createdAt)}
+          {request.requestedByName} · {formatFullDateTime(request.createdAt)}
         </p>
       </div>
 
-      {galat ? (
+      {errorMessage ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs leading-relaxed">
-          {galat}
+          {errorMessage}
         </p>
       ) : null}
 
@@ -380,19 +380,19 @@ function PembatalanReview({
         <Button
           size="sm"
           variant="destructive"
-          disabled={kirim !== null}
+          disabled={submitting !== null}
           onClick={() => putuskan("approve")}
         >
-          {kirim === "approve" ? <Spinner /> : null}
+          {submitting === "approve" ? <Spinner /> : null}
           Setujui Pembatalan
         </Button>
         <Button
           size="sm"
           variant="outline"
-          disabled={kirim !== null}
+          disabled={submitting !== null}
           onClick={() => putuskan("reject")}
         >
-          {kirim === "reject" ? <Spinner /> : null}
+          {submitting === "reject" ? <Spinner /> : null}
           Tolak, Lanjutkan Pekerjaan
         </Button>
       </div>

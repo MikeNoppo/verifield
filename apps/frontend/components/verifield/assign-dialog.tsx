@@ -28,7 +28,7 @@ import { assignInspector } from "@/lib/api/orders"
 import { useApplyResult } from "@/lib/live/hooks"
 import type { Inspector, JobOrder } from "@/lib/domain/types"
 
-type Hasil = { kind: "ok"; nama: string } | { kind: "conflict"; pesan: string } | null
+type Outcome = { kind: "ok"; name: string } | { kind: "conflict"; message: string } | null
 
 /** Penugasan membawa versi order yang sedang dilihat. Bila koordinator lain
     sudah menugaskan lebih dulu, server menolak dan penolakannya ditampilkan apa
@@ -44,53 +44,53 @@ export function AssignDialog({
   compact?: boolean
 }) {
   const actor = useActor()
-  const terapkan = useApplyResult()
+  const applyToStore = useApplyResult()
 
   const [open, setOpen] = React.useState(false)
-  const [kirim, setKirim] = React.useState(false)
-  const [hasil, setHasil] = React.useState<Hasil>(null)
+  const [submitting, setSubmitting] = React.useState(false)
+  const [result, setResult] = React.useState<Outcome>(null)
 
   // Beban kerja jadi dasar urutan karena penugasan otomatis berada di luar
   // cakupan — angka inilah yang menggantikan pertimbangan itu.
-  const urut = React.useMemo(
+  const ordered = React.useMemo(
     () => [...inspectors].sort((a, b) => a.activeJobs - b.activeJobs),
     [inspectors],
   )
-  const [pilihan, setPilihan] = React.useState(urut[0]?.id ?? "")
+  const [options, setPilihan] = React.useState(ordered[0]?.id ?? "")
 
-  function tutup(next: boolean) {
+  function handleOpenChange(next: boolean) {
     setOpen(next)
-    if (!next) setHasil(null)
+    if (!next) setResult(null)
   }
 
   async function tugaskan() {
-    setKirim(true)
+    setSubmitting(true)
     try {
-      const terbaru = await assignInspector(actor.id, order.id, pilihan, order.version)
-      terapkan(terbaru)
-      setHasil({ kind: "ok", nama: terbaru.inspectorName ?? "Inspektor" })
+      const latest = await assignInspector(actor.id, order.id, options, order.version)
+      applyToStore(latest)
+      setResult({ kind: "ok", name: latest.inspectorName ?? "Inspektor" })
     } catch (error) {
-      setHasil({
+      setResult({
         kind: "conflict",
-        pesan:
+        message:
           error instanceof ApiError
             ? error.message
             : "Penugasan tidak dapat dikirim. Periksa koneksi Anda lalu coba lagi.",
       })
     } finally {
-      setKirim(false)
+      setSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={tutup}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button variant="outline" size={compact ? "xs" : "sm"} />}>
         <UserPlusIcon data-icon="inline-start" />
         Tugaskan
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
-        {hasil?.kind === "ok" ? (
+        {result?.kind === "ok" ? (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -98,7 +98,7 @@ export function AssignDialog({
                 Inspektor ditugaskan
               </DialogTitle>
               <DialogDescription>
-                {hasil.nama} ditugaskan pada {order.ref}. Klien melihat perubahan ini tanpa
+                {result.name} ditugaskan pada {order.ref}. Klien melihat perubahan ini tanpa
                 memuat ulang halaman, dan order muncul di daftar tugas inspektor.
               </DialogDescription>
             </DialogHeader>
@@ -106,14 +106,14 @@ export function AssignDialog({
               <DialogClose render={<Button variant="secondary" />}>Tutup</DialogClose>
             </DialogFooter>
           </>
-        ) : hasil?.kind === "conflict" ? (
+        ) : result?.kind === "conflict" ? (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <TriangleAlertIcon className="size-4 text-attention" />
                 Perubahan ditolak
               </DialogTitle>
-              <DialogDescription>{hasil.pesan}</DialogDescription>
+              <DialogDescription>{result.message}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose render={<Button variant="secondary" />}>Tutup</DialogClose>
@@ -129,14 +129,14 @@ export function AssignDialog({
               </DialogDescription>
             </DialogHeader>
 
-            <Select value={pilihan} onValueChange={(v) => setPilihan(String(v))}>
+            <Select value={options} onValueChange={(v) => setPilihan(String(v))}>
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {urut.find((i) => i.id === pilihan)?.name ?? "Pilih inspektor"}
+                  {ordered.find((i) => i.id === options)?.name ?? "Pilih inspektor"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {urut.map((i) => (
+                {ordered.map((i) => (
                   <SelectItem
                     key={i.id}
                     value={i.id}
@@ -150,8 +150,8 @@ export function AssignDialog({
 
             <DialogFooter>
               <DialogClose render={<Button variant="secondary" />}>Batal</DialogClose>
-              <Button onClick={tugaskan} disabled={kirim || !pilihan}>
-                {kirim ? <Spinner /> : null}
+              <Button onClick={tugaskan} disabled={submitting || !options}>
+                {submitting ? <Spinner /> : null}
                 Tugaskan
               </Button>
             </DialogFooter>

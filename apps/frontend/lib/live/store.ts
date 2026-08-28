@@ -20,14 +20,14 @@ export type LiveState = {
   cursor: number
 }
 
-const kosong: LiveState = {
+const empty: LiveState = {
   orders: new Map(),
   connection: "offline",
   lastMessageAt: null,
   cursor: 0,
 }
 
-let state: LiveState = kosong
+let state: LiveState = empty
 const listeners = new Set<() => void>()
 
 function publish(next: LiveState) {
@@ -74,7 +74,7 @@ export function getSnapshot(): LiveState {
 /** Server dan render pertama di klien sama-sama memakai keadaan kosong, sehingga
     markup keduanya identik. Nilai sebenarnya masuk setelah berlangganan. */
 export function getServerSnapshot(): LiveState {
-  return kosong
+  return empty
 }
 
 // ---------------------------------------------------------------------------
@@ -128,13 +128,13 @@ function open(actorId: string, onUnknownOrder: () => void) {
       return
     }
 
-    const dikenal = state.orders.has(order.id)
-    const berubah = apply(order)
+    const known = state.orders.has(order.id)
+    const changed = apply(order)
 
     // Order yang belum pernah terlihat tidak bisa sekadar ditumpangkan: daftar
     // yang sedang tampil disaring di server, dan menyisipkannya di klien akan
     // melanggar saringan itu. Halaman dimuat ulang agar saringannya tetap benar.
-    if (berubah && !dikenal) onUnknownOrder()
+    if (changed && !known) onUnknownOrder()
   })
 
   es.addEventListener("error", () => {
@@ -153,7 +153,7 @@ export function markOffline() {
 
 /** Hanya untuk test. */
 export function reset() {
-  state = kosong
+  state = empty
   listeners.clear()
   source?.close()
   source = null

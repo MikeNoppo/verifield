@@ -4,21 +4,21 @@ import type { SubmitEventResult } from "@/lib/api/orders"
 
 // Antrean adalah satu-satunya jalan laporan inspektor menuju server, jadi yang
 // diuji di sini adalah perilakunya saat pengiriman GAGAL — bukan saat berhasil.
-const kirim = mock<
+const submit = mock<
   (actorId: string, id: string, input: { client_event_id: string }) => Promise<SubmitEventResult>
->(() => Promise.resolve(hasilDiterima()))
+>(() => Promise.resolve(acceptedResult()))
 
 // mock.module mengganti SELURUH modul, sedangkan store real-time ikut memakai
 // orderFromDTO dari sana — tanpa stub ini, store gagal dimuat.
 mock.module("@/lib/api/orders", () => ({
-  submitStatusEvent: kirim,
+  submitStatusEvent: submit,
   orderFromDTO: (d: unknown) => d,
 }))
 
 const { ApiError } = await import("@/lib/api/client")
 const { enqueue, flush, getSnapshot, hydrate, reset } = await import("./queue")
 
-function hasilDiterima(accepted = true, message = "Status berhasil diperbarui."): SubmitEventResult {
+function acceptedResult(accepted = true, message = "Status berhasil diperbarui."): SubmitEventResult {
   return {
     accepted,
     duplicate: false,
@@ -29,7 +29,7 @@ function hasilDiterima(accepted = true, message = "Status berhasil diperbarui.")
   }
 }
 
-function laporan(clientEventId: string) {
+function report(clientEventId: string) {
   return {
     clientEventId,
     orderId: "o1",
@@ -41,44 +41,44 @@ function laporan(clientEventId: string) {
 }
 
 beforeEach(() => {
-  const simpanan = new Map<string, string>()
+  const store = new Map<string, string>()
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
     value: {
-      getItem: (k: string) => simpanan.get(k) ?? null,
-      setItem: (k: string, v: string) => void simpanan.set(k, v),
-      removeItem: (k: string) => void simpanan.delete(k),
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
     },
   })
   reset()
-  kirim.mockClear()
+  submit.mockClear()
 })
 
 afterEach(() => reset())
 
 describe("antrean laporan lapangan", () => {
   test("laporan terkirim dikeluarkan dari antrean", async () => {
-    kirim.mockResolvedValue(hasilDiterima())
-    enqueue(laporan("e1"))
+    submit.mockResolvedValue(acceptedResult())
+    enqueue(report("e1"))
     await flush()
 
     expect(getSnapshot().items).toHaveLength(0)
-    expect(kirim).toHaveBeenCalledTimes(1)
+    expect(submit).toHaveBeenCalledTimes(1)
   })
 
   test("penanda yang sama tidak pernah masuk antrean dua kali", () => {
     // Pertahanan pertama terhadap tombol yang ditekan berulang kali; server
     // punya pertahanan keduanya lewat unique index (B-03).
-    kirim.mockImplementation(() => new Promise(() => {}))
-    enqueue(laporan("e1"))
-    enqueue(laporan("e1"))
+    submit.mockImplementation(() => new Promise(() => {}))
+    enqueue(report("e1"))
+    enqueue(report("e1"))
 
     expect(getSnapshot().items).toHaveLength(1)
   })
 
   test("gagal jaringan menahan laporan di antrean", async () => {
-    kirim.mockRejectedValue(new TypeError("Failed to fetch"))
-    enqueue(laporan("e1"))
+    submit.mockRejectedValue(new TypeError("Failed to fetch"))
+    enqueue(report("e1"))
     await flush()
 
     expect(getSnapshot().items).toHaveLength(1)
@@ -88,20 +88,20 @@ describe("antrean laporan lapangan", () => {
   test("gagal jaringan menghentikan sisa antrean agar urutannya terjaga", async () => {
     // Melanjutkan ke laporan berikutnya membuat server menerima "Selesai"
     // sebelum "Mulai", yang akan ditolak sebagai keluar urutan padahal sah.
-    kirim.mockRejectedValue(new TypeError("Failed to fetch"))
-    enqueue(laporan("e1"))
-    enqueue(laporan("e2"))
+    submit.mockRejectedValue(new TypeError("Failed to fetch"))
+    enqueue(report("e1"))
+    enqueue(report("e2"))
     await flush()
 
     expect(getSnapshot().items).toHaveLength(2)
-    expect(kirim).toHaveBeenCalledTimes(1)
+    expect(submit).toHaveBeenCalledTimes(1)
   })
 
   test("penolakan server mengeluarkan laporan dan menjelaskan alasannya", async () => {
     // Mengulanginya tidak akan berhasil, tetapi menelannya tanpa penjelasan
     // akan membuat inspektor kembali melapor lewat telepon.
-    kirim.mockRejectedValue(new ApiError("Order ini tidak ditugaskan kepada Anda", "FORBIDDEN", 403))
-    enqueue(laporan("e1"))
+    submit.mockRejectedValue(new ApiError("Order ini tidak ditugaskan kepada Anda", "FORBIDDEN", 403))
+    enqueue(report("e1"))
     await flush()
 
     expect(getSnapshot().items).toHaveLength(0)
@@ -112,8 +112,8 @@ describe("antrean laporan lapangan", () => {
 
   test("laporan yang diterima tetapi tidak mengubah status ikut dijelaskan", async () => {
     // Keputusan B-07: pengirimannya berhasil, perubahan statusnya yang ditolak.
-    kirim.mockResolvedValue(hasilDiterima(false, "Order sudah ditutup sebelum laporan Anda masuk."))
-    enqueue(laporan("e1"))
+    submit.mockResolvedValue(acceptedResult(false, "Order sudah ditutup sebelum laporan Anda masuk."))
+    enqueue(report("e1"))
     await flush()
 
     expect(getSnapshot().items).toHaveLength(0)
@@ -123,20 +123,20 @@ describe("antrean laporan lapangan", () => {
   test("laporan yang belum terkirim tersimpan di perangkat", async () => {
     // Inilah yang membuat laporan selamat melewati aplikasi yang ditutup dan
     // halaman yang dimuat ulang.
-    kirim.mockRejectedValue(new TypeError("Failed to fetch"))
-    enqueue(laporan("e1"))
+    submit.mockRejectedValue(new TypeError("Failed to fetch"))
+    enqueue(report("e1"))
     await flush()
 
-    const tersimpan = JSON.parse(localStorage.getItem("verifield.outbox.v1") ?? "[]")
-    expect(tersimpan).toHaveLength(1)
-    expect(tersimpan[0].clientEventId).toBe("e1")
-    expect(tersimpan[0].occurredAt).toBe("2026-08-28T06:00:00Z")
+    const persisted = JSON.parse(localStorage.getItem("verifield.outbox.v1") ?? "[]")
+    expect(persisted).toHaveLength(1)
+    expect(persisted[0].clientEventId).toBe("e1")
+    expect(persisted[0].occurredAt).toBe("2026-08-28T06:00:00Z")
   })
 
   test("hydrate memulihkan antrean dari penyimpanan perangkat", () => {
     localStorage.setItem(
       "verifield.outbox.v1",
-      JSON.stringify([{ ...laporan("e9"), attempts: 0 }]),
+      JSON.stringify([{ ...report("e9"), attempts: 0 }]),
     )
     hydrate()
 

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { useConnection, useLastUpdate } from "@/lib/live/hooks"
-import { waktu } from "@/lib/format"
+import { formatTime } from "@/lib/format"
 
 const TEKS = {
   connecting: "Menyambung",
@@ -59,7 +59,7 @@ export function ConnectionIndicator({
 
       {!compact && lastUpdate ? (
         <span className="tabular text-muted-foreground/70">
-          · kabar terakhir {waktu(lastUpdate)}
+          · kabar terakhir {formatTime(lastUpdate)}
         </span>
       ) : null}
     </span>

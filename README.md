@@ -62,6 +62,20 @@ pipeline migrasi Atlas/goose, dan modul `user`. Seluruh domain Verifield — job
 riwayat status, pembatalan, real-time — ditulis untuk case study ini. Frontend dimulai dari
 `create-next-app` dengan komponen shadcn/ui.
 
+## Konvensi bahasa
+
+Dua bahasa, satu aturan masing-masing, dan tidak pernah bercampur dalam satu kata:
+
+- **Pengenal kode berbahasa Inggris** — tipe, fungsi, variabel, kolom, kunci API,
+  dan nilai enum, termasuk di dalam berkas uji.
+- **Prosa berbahasa Indonesia** — komentar, dokumen, pesan commit, dan seluruh
+  teks yang dibaca pengguna: pesan API, pesan validasi, dan antarmuka.
+
+Satu tumpang tindih yang disengaja: nama fungsi uji Go tetap berbahasa Indonesia
+(`TestMatriksKewenanganPembatalan`). Ia dibaca sebagai kalimat pada keluaran
+`go test` — prosa yang kebetulan harus dieja sebagai pengenal, sama seperti
+deskripsi `test("...")` di frontend.
+
 ## Asumsi
 
 Seluruh asumsi bisnis dicatat dan diberi alasan di **Deliverable A**,

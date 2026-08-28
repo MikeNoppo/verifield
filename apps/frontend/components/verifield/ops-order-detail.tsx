@@ -16,18 +16,18 @@ import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveEvents, useLiveOrder } from "@/lib/live/hooks"
 import { cancelAuthority, cancelOffered, isStale, needsAssignment } from "@/lib/domain/status"
 import type { Inspector, JobOrder, OpenAlertType } from "@/lib/domain/types"
-import { sejak, tanggalLengkap } from "@/lib/format"
+import { relativeTime, formatFullDateTime } from "@/lib/format"
 
 /** Kalimat yang harus dibaca koordinator berbeda per jenis alert, dan tindak
     lanjutnya juga berbeda: yang satu menyangkut kompensasi inspektor, yang lain
     menyangkut penyelesaian komersial dengan klien. */
 const ALERT: Record<
   OpenAlertType,
-  { Icon: typeof CloudOffIcon; judul: string; penjelasan: string }
+  { Icon: typeof CloudOffIcon; title: string; penjelasan: string }
 > = {
   late_update_rejected: {
     Icon: CloudOffIcon,
-    judul: "Pembaruan terlambat ditolak",
+    title: "Pembaruan terlambat ditolak",
     penjelasan:
       "Order sudah final ketika laporan inspektor masuk, sehingga status tidak berubah. " +
       "Tetapi ada pekerjaan nyata yang telah dilakukan seseorang — kompensasi inspektor " +
@@ -103,7 +103,7 @@ export function OpsOrderDetail({
         <div className="mb-4 flex gap-3 rounded-xl border border-attention/30 bg-attention/6 p-4">
           <alert.Icon className="mt-0.5 size-4 shrink-0 text-attention" />
           <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium">{alert.judul}</span>
+            <span className="text-sm font-medium">{alert.title}</span>
             <p className="text-xs leading-relaxed text-muted-foreground">{alert.penjelasan}</p>
           </div>
         </div>
@@ -112,7 +112,7 @@ export function OpsOrderDetail({
       {basi ? (
         <div className="mb-4 rounded-xl border border-attention/30 bg-attention/6 px-4 py-3 text-xs leading-relaxed">
           <strong className="font-medium">
-            Tanpa pembaruan {sejak(order.statusChangedAt, now)}.
+            Tanpa pembaruan {relativeTime(order.statusChangedAt, now)}.
           </strong>{" "}
           Kemungkinan inspektor lupa memperbarui. Tindak lanjuti sebelum klien bertanya.
         </div>
@@ -130,7 +130,7 @@ export function OpsOrderDetail({
                 <span className="text-xs text-muted-foreground">{order.address}</span>
               </Baris>
               <Baris label="Jadwal diminta">
-                <span className="tabular">{tanggalLengkap(order.scheduledAt)}</span>
+                <span className="tabular">{formatFullDateTime(order.scheduledAt)}</span>
               </Baris>
               <Baris label="Inspektor ditugaskan">
                 {order.inspectorName ?? (

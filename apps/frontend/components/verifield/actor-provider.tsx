@@ -43,12 +43,12 @@ export function ActorScope({
   )
   const scope = React.useMemo(() => (actor ? { actor, actors } : null), [actor, actors])
 
-  if (!scope) return <SeederKosong role={PERSONA_ROLE[persona]} />
+  if (!scope) return <MissingActor role={PERSONA_ROLE[persona]} />
 
   return <ActorContext.Provider value={scope}>{children}</ActorContext.Provider>
 }
 
-function SeederKosong({ role }: { role: string }) {
+function MissingActor({ role }: { role: string }) {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-2 p-6 text-center">
       <p className="text-sm font-medium">Tidak ada aktor contoh berperan &ldquo;{role}&rdquo;</p>

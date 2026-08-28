@@ -14,7 +14,7 @@ function actor(id: string, role: Actor["role"], companyName: string | null = nul
   }
 }
 
-const DAFTAR: Actor[] = [
+const ACTORS: Actor[] = [
   actor("admin", "admin"),
   actor("budi", "client", "PT Samudra"),
   actor("dewi", "client", "PT Bara"),
@@ -24,22 +24,22 @@ const DAFTAR: Actor[] = [
 
 describe("findActor", () => {
   test("id yang cocok peran dipilih", () => {
-    expect(findActor(DAFTAR, "klien", "dewi")?.id).toBe("dewi")
+    expect(findActor(ACTORS, "klien", "dewi")?.id).toBe("dewi")
   })
 
   test("tanpa id jatuh ke aktor pertama berperan itu", () => {
-    expect(findActor(DAFTAR, "klien", null)?.id).toBe("budi")
-    expect(findActor(DAFTAR, "lapangan", null)?.id).toBe("joko")
+    expect(findActor(ACTORS, "klien", null)?.id).toBe("budi")
+    expect(findActor(ACTORS, "lapangan", null)?.id).toBe("joko")
   })
 
   // Aktor peran lain di URL tidak boleh diterima: layar klien yang menampilkan
   // inspektor akan meminta order yang tidak boleh dilihatnya.
   test("id milik peran lain diabaikan, bukan dipakai", () => {
-    expect(findActor(DAFTAR, "klien", "joko")?.id).toBe("budi")
+    expect(findActor(ACTORS, "klien", "joko")?.id).toBe("budi")
   })
 
   test("id yang tidak dikenal diabaikan", () => {
-    expect(findActor(DAFTAR, "ops", "entah")?.id).toBe("admin")
+    expect(findActor(ACTORS, "ops", "entah")?.id).toBe("admin")
   })
 
   test("peran tanpa aktor mengembalikan undefined, tidak melempar", () => {

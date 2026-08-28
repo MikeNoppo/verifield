@@ -35,13 +35,13 @@ function order(id: string, seq: number, status: JobOrder["status"] = "on_site"):
 afterEach(() => reset())
 
 describe("penggabungan berdasarkan seq", () => {
-  test("pesan yang lebih baru diterapkan", () => {
+  test("message yang lebih baru diterapkan", () => {
     expect(apply(order("a", 5))).toBe(true)
     expect(apply(order("a", 6, "in_progress"))).toBe(true)
     expect(getSnapshot().orders.get("a")?.status).toBe("in_progress")
   })
 
-  test("pesan ganda diabaikan", () => {
+  test("message ganda diabaikan", () => {
     // Replay saat menyambung ulang sengaja tumpang tindih dengan siaran
     // langsung agar tidak ada celah, sehingga pesan yang sama memang bisa
     // datang dua kali.
@@ -49,7 +49,7 @@ describe("penggabungan berdasarkan seq", () => {
     expect(apply(order("a", 5))).toBe(false)
   })
 
-  test("pesan yang datang terbalik urutannya tidak membuat status mundur", () => {
+  test("message yang datang terbalik urutannya tidak membuat status mundur", () => {
     apply(order("a", 9, "completed"))
     expect(apply(order("a", 7, "on_site"))).toBe(false)
     expect(getSnapshot().orders.get("a")?.status).toBe("completed")

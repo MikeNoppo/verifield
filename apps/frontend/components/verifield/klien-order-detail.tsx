@@ -14,7 +14,7 @@ import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveEvents, useLiveOrder } from "@/lib/live/hooks"
 import { cancelAuthority, cancelOffered } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
-import { tanggalLengkap } from "@/lib/format"
+import { formatFullDateTime } from "@/lib/format"
 
 function Baris({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -75,7 +75,7 @@ export function KlienOrderDetail({ order: initial }: { order: JobOrder }) {
                 {order.location}, {order.city}
               </Baris>
               <Baris label="Jadwal diminta">
-                <span className="tabular">{tanggalLengkap(order.scheduledAt)}</span>
+                <span className="tabular">{formatFullDateTime(order.scheduledAt)}</span>
               </Baris>
               {/* Identitas lengkap dan posisi inspektor tidak ditampilkan kepada
                   klien — kebutuhannya sudah terpenuhi oleh status (B-08). */}

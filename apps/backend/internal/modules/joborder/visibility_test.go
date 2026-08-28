@@ -26,10 +26,10 @@ func TestVisibleTo(t *testing.T) {
 	}
 
 	cases := []struct {
-		nama    string
+		name    string
 		actor   joborder.Actor
 		order   *schema.JobOrder
-		melihat bool
+		visible bool
 	}{
 		{
 			"klien melihat order perusahaannya",
@@ -74,8 +74,8 @@ func TestVisibleTo(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := joborder.VisibleTo(c.actor, c.order); got != c.melihat {
-			t.Errorf("%s: VisibleTo = %v, ingin %v", c.nama, got, c.melihat)
+		if got := joborder.VisibleTo(c.actor, c.order); got != c.visible {
+			t.Errorf("%s: VisibleTo = %v, ingin %v", c.name, got, c.visible)
 		}
 	}
 }
@@ -84,17 +84,17 @@ func TestVisibleTo(t *testing.T) {
 // dipercayakan pada query string yang dikirim pemanggil.
 func TestScopeQuery(t *testing.T) {
 	perusahaan := uuid.New()
-	inspektor := uuid.New()
+	inspector := uuid.New()
 	orangLain := uuid.New()
 
 	t.Run("inspektor tidak bisa melihat daftar inspektor lain", func(t *testing.T) {
-		actor := joborder.Actor{ID: inspektor, Role: schema.RoleInspector}
+		actor := joborder.Actor{ID: inspector, Role: schema.RoleInspector}
 		got, err := joborder.ScopeQuery(actor, dto.ListQuery{InspectorID: orangLain.String()})
 		if err != nil {
 			t.Fatalf("ScopeQuery: %v", err)
 		}
-		if got.InspectorID != inspektor.String() {
-			t.Errorf("InspectorID = %q, ingin %q", got.InspectorID, inspektor.String())
+		if got.InspectorID != inspector.String() {
+			t.Errorf("InspectorID = %q, ingin %q", got.InspectorID, inspector.String())
 		}
 	})
 

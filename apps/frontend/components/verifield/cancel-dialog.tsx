@@ -32,45 +32,45 @@ import type { JobOrder, Role } from "@/lib/domain/types"
     pernah cukup menjadi jaminan. */
 export function CancelDialog({ role, order }: { role: Role; order: JobOrder }) {
   const actor = useActor()
-  const terapkan = useApplyResult()
+  const applyToStore = useApplyResult()
 
   const [open, setOpen] = React.useState(false)
-  const [alasan, setAlasan] = React.useState("")
-  const [kirim, setKirim] = React.useState(false)
-  const [hasil, setHasil] = React.useState<CancelResult | null>(null)
-  const [galat, setGalat] = React.useState<string | null>(null)
+  const [reason, setReason] = React.useState("")
+  const [submitting, setSubmitting] = React.useState(false)
+  const [result, setResult] = React.useState<CancelResult | null>(null)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
   const auth = cancelAuthority(role, order.status)
 
-  function tutup(next: boolean) {
+  function handleOpenChange(next: boolean) {
     setOpen(next)
     if (!next) {
-      setHasil(null)
-      setGalat(null)
-      setAlasan("")
+      setResult(null)
+      setErrorMessage(null)
+      setReason("")
     }
   }
 
   async function kirimkan() {
-    setKirim(true)
-    setGalat(null)
+    setSubmitting(true)
+    setErrorMessage(null)
     try {
-      const result = await cancelOrder(actor.id, order.id, alasan.trim(), order.version)
-      terapkan(result.order)
-      setHasil(result)
+      const result = await cancelOrder(actor.id, order.id, reason.trim(), order.version)
+      applyToStore(result.order)
+      setResult(result)
     } catch (error) {
-      setGalat(
+      setErrorMessage(
         error instanceof ApiError
           ? error.message
           : "Permintaan tidak dapat dikirim. Periksa koneksi Anda lalu coba lagi.",
       )
     } finally {
-      setKirim(false)
+      setSubmitting(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={tutup}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={<Button variant="destructive" size="sm" disabled={!cancelOffered(auth)} />}
       >
@@ -78,18 +78,18 @@ export function CancelDialog({ role, order }: { role: Role; order: JobOrder }) {
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
-        {hasil ? (
+        {result ? (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CircleCheckIcon className="size-4 text-status-completed" />
-                {hasil.status === "pending_approval"
+                {result.status === "pending_approval"
                   ? "Permintaan diteruskan"
                   : "Order dibatalkan"}
               </DialogTitle>
               {/* Kalimatnya berasal dari server, bukan disusun ulang di sini —
                   satu tempat yang menentukan bagaimana penolakan dijelaskan. */}
-              <DialogDescription>{hasil.message}</DialogDescription>
+              <DialogDescription>{result.message}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose render={<Button variant="secondary" />}>Tutup</DialogClose>
@@ -123,8 +123,8 @@ export function CancelDialog({ role, order }: { role: Role; order: JobOrder }) {
               <Textarea
                 id="alasan-batal"
                 rows={3}
-                value={alasan}
-                onChange={(e) => setAlasan(e.target.value)}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
                 placeholder="Contoh: jadwal pengapalan dimajukan."
                 className="text-sm"
               />
@@ -136,9 +136,9 @@ export function CancelDialog({ role, order }: { role: Role; order: JobOrder }) {
               ) : null}
             </div>
 
-            {galat ? (
+            {errorMessage ? (
               <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs leading-relaxed">
-                {galat}
+                {errorMessage}
               </p>
             ) : null}
 
@@ -147,9 +147,9 @@ export function CancelDialog({ role, order }: { role: Role; order: JobOrder }) {
               <Button
                 variant="destructive"
                 onClick={kirimkan}
-                disabled={kirim || alasan.trim().length < 3 || !cancelOffered(auth)}
+                disabled={submitting || reason.trim().length < 3 || !cancelOffered(auth)}
               >
-                {kirim ? <Spinner /> : null}
+                {submitting ? <Spinner /> : null}
                 {auth.kind === "requires_approval" ? "Kirim Permintaan" : "Ya, Batalkan"}
               </Button>
             </DialogFooter>

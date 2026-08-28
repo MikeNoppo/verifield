@@ -84,9 +84,9 @@ export function getSnapshot(): OutboxState {
   return state
 }
 
-const kosong: OutboxState = { items: [], failures: [], flushing: false }
+const empty: OutboxState = { items: [], failures: [], flushing: false }
 export function getServerSnapshot(): OutboxState {
-  return kosong
+  return empty
 }
 
 export function enqueue(item: Omit<OutboxItem, "attempts">) {
@@ -115,13 +115,13 @@ export async function flush(): Promise<void> {
   if (state.flushing || state.items.length === 0) return
   publish({ ...state, flushing: true })
 
-  const antrian = [...state.items]
-  const terkirim = new Set<string>()
-  const gagal: OutboxState["failures"] = []
+  const batch = [...state.items]
+  const settled = new Set<string>()
+  const failed: OutboxState["failures"] = []
 
-  for (const item of antrian) {
+  for (const item of batch) {
     try {
-      const hasil = await submitStatusEvent(item.actorId, item.orderId, {
+      const result = await submitStatusEvent(item.actorId, item.orderId, {
         to_status: item.toStatus,
         client_event_id: item.clientEventId,
         occurred_at: item.occurredAt,
@@ -130,20 +130,20 @@ export async function flush(): Promise<void> {
 
       // Layar berubah seketika tanpa menunggu pesan real-time yang membawa
       // perubahan yang sama kembali.
-      apply(hasil.order)
-      terkirim.add(item.clientEventId)
+      apply(result.order)
+      settled.add(item.clientEventId)
 
       // Laporan yang ditolak tetap keluar dari antrean: server sudah
       // mencatatnya, jadi mengirim ulang tidak akan mengubah apa pun. Yang
       // ditolak adalah perubahan statusnya, bukan pengirimannya (B-07).
-      if (!hasil.accepted && !hasil.duplicate) {
-        gagal.push({ orderRef: item.orderRef, message: hasil.message })
+      if (!result.accepted && !result.duplicate) {
+        failed.push({ orderRef: item.orderRef, message: result.message })
       }
     } catch (error) {
       if (error instanceof ApiError) {
         // Server menjawab dan menolak. Mengulanginya tidak akan berhasil.
-        terkirim.add(item.clientEventId)
-        gagal.push({ orderRef: item.orderRef, message: error.message })
+        settled.add(item.clientEventId)
+        failed.push({ orderRef: item.orderRef, message: error.message })
         continue
       }
       // Gagal jaringan: laporan tetap di antrean dan dicoba lagi nanti. Sisa
@@ -156,12 +156,12 @@ export async function flush(): Promise<void> {
   // sebelum perulangan. Inspektor bisa menekan tombol lagi selagi pengiriman
   // berjalan, dan laporan itu sudah masuk antrean — memakai salinan lama akan
   // menghapusnya tanpa jejak.
-  const sisa = state.items.filter((i) => !terkirim.has(i.clientEventId))
+  const remaining = state.items.filter((i) => !settled.has(i.clientEventId))
 
-  persist(sisa)
+  persist(remaining)
   publish({
-    items: sisa,
-    failures: [...state.failures, ...gagal],
+    items: remaining,
+    failures: [...state.failures, ...failed],
     flushing: false,
   })
 }

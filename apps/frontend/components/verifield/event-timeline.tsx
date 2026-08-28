@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 import { STATUS_LABEL } from "@/lib/domain/status"
 import type { EventKind, Role, Status, StatusEvent } from "@/lib/domain/types"
 import { DualTimestamp } from "./dual-timestamp"
-import { tanggalLengkap } from "@/lib/format"
+import { formatFullDateTime } from "@/lib/format"
 
 const DOT: Record<Status, string> = {
   requested: "bg-status-requested",
@@ -60,7 +60,7 @@ const ICON: Partial<Record<EventKind, typeof CloudOffIcon>> = {
   rejected_other: ClockAlertIcon,
 }
 
-function judul(e: StatusEvent): string {
+function title(e: StatusEvent): string {
   switch (e.kind) {
     case "correction":
       return `Koreksi ke ${STATUS_LABEL[e.to]}`
@@ -86,9 +86,9 @@ function judul(e: StatusEvent): string {
 }
 
 function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean }) {
-  const diterapkan = APPLIED[event.kind]
+  const applied = APPLIED[event.kind]
   const Icon = ICON[event.kind]
-  const koreksi = event.kind === "correction"
+  const isCorrection = event.kind === "correction"
 
   return (
     <li className="relative flex gap-4 pb-6 last:pb-0">
@@ -97,9 +97,9 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
       <span
         className={cn(
           "relative mt-1.5 flex size-2.5 shrink-0 items-center justify-center rounded-full",
-          !diterapkan && "bg-transparent ring-2 ring-muted-foreground/40",
-          koreksi && "bg-transparent ring-2 ring-attention/70",
-          diterapkan && !koreksi && DOT[event.to],
+          !applied && "bg-transparent ring-2 ring-muted-foreground/40",
+          isCorrection && "bg-transparent ring-2 ring-attention/70",
+          applied && !isCorrection && DOT[event.to],
         )}
       />
 
@@ -109,16 +109,16 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
             <span
               className={cn(
                 "text-sm font-medium",
-                diterapkan ? "text-foreground" : "text-muted-foreground line-through",
+                applied ? "text-foreground" : "text-muted-foreground line-through",
               )}
             >
-              {judul(event)}
+              {title(event)}
             </span>
             {Icon ? (
               <Icon
                 className={cn(
                   "size-3.5",
-                  koreksi || event.kind === "cancellation_request"
+                  isCorrection || event.kind === "cancellation_request"
                     ? "text-attention"
                     : "text-muted-foreground",
                 )}
@@ -143,7 +143,7 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
           <p
             className={cn(
               "rounded-md border px-3 py-2 text-xs leading-relaxed",
-              koreksi || event.kind === "cancellation_request"
+              isCorrection || event.kind === "cancellation_request"
                 ? "border-attention/25 bg-attention/8 text-foreground"
                 : "border-border bg-muted/40 text-muted-foreground",
             )}
@@ -166,7 +166,7 @@ function Entry({ event, showAudit }: { event: StatusEvent; showAudit: boolean })
           <span className="tabular font-mono text-[10px] text-muted-foreground/70">
             #{event.seq}
             {event.idempotencyKey ? ` · ${event.idempotencyKey}` : ""} · diterima{" "}
-            {tanggalLengkap(event.receivedTime)}
+            {formatFullDateTime(event.receivedTime)}
           </span>
         ) : null}
       </div>
@@ -184,14 +184,14 @@ export function EventTimeline({
   events: StatusEvent[]
   showAudit?: boolean
 }) {
-  const urut = [...events].sort((a, b) => {
-    const selisih = new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime()
-    return selisih !== 0 ? selisih : a.seq - b.seq
+  const ordered = [...events].sort((a, b) => {
+    const millisBetween = new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime()
+    return millisBetween !== 0 ? millisBetween : a.seq - b.seq
   })
 
   return (
     <ol className="flex flex-col">
-      {urut.map((e) => (
+      {ordered.map((e) => (
         <Entry key={e.id} event={e} showAudit={showAudit} />
       ))}
     </ol>

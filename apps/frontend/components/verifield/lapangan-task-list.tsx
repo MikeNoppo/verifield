@@ -11,7 +11,7 @@ import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveList } from "@/lib/live/hooks"
 import { inspectorActions, isTerminal } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
-import { tanggalJam } from "@/lib/format"
+import { formatDateTime } from "@/lib/format"
 
 export function LapanganTaskList({ orders: initial }: { orders: JobOrder[] }) {
   const semua = useLiveList(initial)
@@ -31,7 +31,7 @@ export function LapanganTaskList({ orders: initial }: { orders: JobOrder[] }) {
         <Empty>
           <EmptyHeader>
             <EmptyTitle>Tidak ada penugasan berjalan</EmptyTitle>
-            <EmptyDescription>Koordinator akan menugaskan pekerjaan berikutnya.</EmptyDescription>
+            <EmptyDescription>Koordinator akan menugaskan pekerjaan next.</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -66,7 +66,7 @@ export function LapanganTaskList({ orders: initial }: { orders: JobOrder[] }) {
 
                   <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
                     <span className="tabular text-xs text-muted-foreground">
-                      {tanggalJam(o.scheduledAt)}
+                      {formatDateTime(o.scheduledAt)}
                     </span>
                     {next ? (
                       <span className="flex items-center gap-1 text-sm font-semibold">

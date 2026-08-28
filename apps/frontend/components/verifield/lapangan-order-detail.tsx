@@ -12,7 +12,7 @@ import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveOrder } from "@/lib/live/hooks"
 import { isTerminal } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
-import { tanggalLengkap } from "@/lib/format"
+import { formatFullDateTime } from "@/lib/format"
 
 export function LapanganOrderDetail({ order: initial }: { order: JobOrder }) {
   const order = useLiveOrder(initial)
@@ -59,11 +59,11 @@ export function LapanganOrderDetail({ order: initial }: { order: JobOrder }) {
           {order.location}, {order.city}
         </span>
         <span className="tabular text-xs text-muted-foreground">
-          Dijadwalkan {tanggalLengkap(order.scheduledAt)}
+          Dijadwalkan {formatFullDateTime(order.scheduledAt)}
         </span>
       </div>
 
-      {/* Satu tombol besar berisi tindakan berikutnya. Tidak ada daftar status
+      {/* Satu tombol besar berisi tindakan next. Tidak ada daftar status
           untuk dipilih, dan tidak ada tombol batal (B-04, F-04). */}
       <div className="mb-6">
         <NextAction order={order} />

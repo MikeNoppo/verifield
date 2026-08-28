@@ -84,7 +84,7 @@ func TestWaktuKejadianDijepitSaatJamPerangkatMeleset(t *testing.T) {
 	received := time.Date(2026, 8, 28, 12, 0, 0, 0, time.UTC)
 
 	cases := []struct {
-		nama       string
+		name       string
 		occurred   time.Time
 		mauDisetel bool
 	}{
@@ -100,7 +100,7 @@ func TestWaktuKejadianDijepitSaatJamPerangkatMeleset(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.nama, func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			got, adjusted := joborder.ClampOccurredAt(c.occurred, received, time.Time{})
 
 			if adjusted != c.mauDisetel {
@@ -109,11 +109,11 @@ func TestWaktuKejadianDijepitSaatJamPerangkatMeleset(t *testing.T) {
 			if adjusted && !got.Equal(received) {
 				t.Errorf("saat disetel, waktu harus jatuh ke waktu terima; dapat %v", got)
 			}
-			mau := c.occurred
-			if mau.IsZero() {
-				mau = received
+			want := c.occurred
+			if want.IsZero() {
+				want = received
 			}
-			if !adjusted && !got.Equal(mau) {
+			if !adjusted && !got.Equal(want) {
 				t.Errorf("saat tidak disetel, waktu asli harus dipertahankan; dapat %v", got)
 			}
 		})
@@ -125,30 +125,30 @@ func TestWaktuKejadianTidakBolehMendahuluiOrdernya(t *testing.T) {
 	// perangkat yang meleset beberapa jam menempatkan "tiba di lokasi" sebelum
 	// "order diminta", dan riwayat yang menjadi bukti perselisihan jadi tidak
 	// masuk akal.
-	dibuat := time.Date(2026, 8, 28, 12, 0, 0, 0, time.UTC)
-	received := dibuat.Add(30 * time.Minute)
+	createdAt := time.Date(2026, 8, 28, 12, 0, 0, 0, time.UTC)
+	received := createdAt.Add(30 * time.Minute)
 
-	got, adjusted := joborder.ClampOccurredAt(dibuat.Add(-2*time.Hour), received, dibuat)
+	got, adjusted := joborder.ClampOccurredAt(createdAt.Add(-2*time.Hour), received, createdAt)
 	if !adjusted {
 		t.Error("waktu sebelum order dibuat seharusnya ditandai disesuaikan")
 	}
-	if !got.Equal(dibuat) {
-		t.Errorf("waktu = %v, mau dijepit ke waktu order dibuat %v", got, dibuat)
+	if !got.Equal(createdAt) {
+		t.Errorf("waktu = %v, mau dijepit ke waktu order dibuat %v", got, createdAt)
 	}
 
-	sesudah := dibuat.Add(10 * time.Minute)
-	got, adjusted = joborder.ClampOccurredAt(sesudah, received, dibuat)
-	if adjusted || !got.Equal(sesudah) {
+	after := createdAt.Add(10 * time.Minute)
+	got, adjusted = joborder.ClampOccurredAt(after, received, createdAt)
+	if adjusted || !got.Equal(after) {
 		t.Errorf("waktu sesudah order dibuat harus dipertahankan; dapat %v (adjusted=%v)", got, adjusted)
 	}
 }
 
 func TestMatriksKewenanganPembatalan(t *testing.T) {
 	cases := []struct {
-		nama   string
+		name   string
 		role   schema.Role
 		status schema.JobStatus
-		mau    joborder.CancelOutcome
+		want   joborder.CancelOutcome
 		fee    joborder.CancelFee
 	}{
 		{"klien membatalkan sebelum penugasan", schema.RoleClient, schema.StatusRequested, joborder.CancelImmediate, joborder.FeeNone},
@@ -166,11 +166,11 @@ func TestMatriksKewenanganPembatalan(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.nama, func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			got := joborder.EvaluateCancel(c.role, c.status)
 
-			if got.Outcome != c.mau {
-				t.Errorf("outcome = %v, mau %v", got.Outcome, c.mau)
+			if got.Outcome != c.want {
+				t.Errorf("outcome = %v, mau %v", got.Outcome, c.want)
 			}
 			if c.fee != "" && got.Fee != c.fee {
 				t.Errorf("fee = %q, mau %q", got.Fee, c.fee)
@@ -188,10 +188,10 @@ func TestMatriksKewenanganPembatalan(t *testing.T) {
 // perangkatnya tertinggal dan tidak ada yang perlu ia perbaiki.
 func TestArahPenolakanTransisi(t *testing.T) {
 	cases := []struct {
-		nama string
+		name string
 		from schema.JobStatus
 		to   schema.JobStatus
-		mau  string
+		want string
 	}{
 		{"melompati tahap di depan", schema.StatusOnTheWay, schema.StatusCompleted, joborder.RejectionSkippedStep},
 		{"melompat dari penugasan langsung ke kendala", schema.StatusAssigned, schema.StatusFailed, joborder.RejectionSkippedStep},
@@ -200,12 +200,12 @@ func TestArahPenolakanTransisi(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.nama, func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			if joborder.CanTransition(c.from, c.to) {
 				t.Fatalf("%s → %s seharusnya bukan transisi yang sah", c.from, c.to)
 			}
-			if got := joborder.RejectionFor(c.from, c.to); got != c.mau {
-				t.Errorf("alasan = %q, mau %q", got, c.mau)
+			if got := joborder.RejectionFor(c.from, c.to); got != c.want {
+				t.Errorf("alasan = %q, mau %q", got, c.want)
 			}
 		})
 	}

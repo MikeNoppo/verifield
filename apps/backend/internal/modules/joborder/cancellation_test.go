@@ -131,18 +131,18 @@ func (f *fakeRepo) NextReference(context.Context, int) (string, error) { return 
 
 // ---------------------------------------------------------------------------
 
-type panggung struct {
+type fixture struct {
 	repo        *fakeRepo
 	svc         joborder.Service
 	order       *schema.JobOrder
 	request     *schema.CancellationRequest
-	inspektor   joborder.Actor
-	koordinator joborder.Actor
+	inspector   joborder.Actor
+	coordinator joborder.Actor
 }
 
 // siapkan membangun satu order pada status tertentu, dengan permintaan
 // pembatalan klien yang masih menunggu keputusan koordinator.
-func siapkan(t *testing.T, status schema.JobStatus) *panggung {
+func setup(t *testing.T, status schema.JobStatus) *fixture {
 	t.Helper()
 
 	inspekturID := uuid.New()
@@ -164,25 +164,25 @@ func siapkan(t *testing.T, status schema.JobStatus) *panggung {
 	}
 	repo := &fakeRepo{order: order, requests: []*schema.CancellationRequest{request}}
 
-	return &panggung{
+	return &fixture{
 		repo:        repo,
 		svc:         joborder.NewService(repo, nil, joborder.DefaultSchedulePolicy(time.UTC)),
 		order:       order,
 		request:     request,
-		inspektor:   joborder.Actor{ID: inspekturID, Role: schema.RoleInspector},
-		koordinator: joborder.Actor{ID: uuid.New(), Role: schema.RoleAdmin},
+		inspector:   joborder.Actor{ID: inspekturID, Role: schema.RoleInspector},
+		coordinator: joborder.Actor{ID: uuid.New(), Role: schema.RoleAdmin},
 	}
 }
 
-func (p *panggung) eventTerakhir(t *testing.T) *schema.JobStatusEvent {
+func (f *fixture) lastEvent(t *testing.T) *schema.JobStatusEvent {
 	t.Helper()
-	if len(p.repo.events) == 0 {
+	if len(f.repo.events) == 0 {
 		t.Fatal("tidak ada event yang tercatat")
 	}
-	return p.repo.events[len(p.repo.events)-1]
+	return f.repo.events[len(f.repo.events)-1]
 }
 
-func statusHTTP(t *testing.T, err error) int {
+func httpStatus(t *testing.T, err error) int {
 	t.Helper()
 	appErr, ok := apperror.As(err)
 	if !ok {
@@ -197,26 +197,26 @@ func statusHTTP(t *testing.T, err error) int {
 // tetapi juga tidak boleh dinyatakan selesai, karena pertanyaan komersialnya
 // belum dijawab siapa pun.
 func TestPermintaanPembatalanMenungguPenyelesaianSaatPekerjaanSelesai(t *testing.T) {
-	p := siapkan(t, schema.StatusInProgress)
+	f := setup(t, schema.StatusInProgress)
 
-	_, err := p.svc.SubmitEvent(context.Background(), p.inspektor, p.order.ID.String(),
+	_, err := f.svc.SubmitEvent(context.Background(), f.inspector, f.order.ID.String(),
 		dto.SubmitStatusEventDTO{ToStatus: "completed", ClientEventID: "penanda-perangkat-1"})
 	if err != nil {
 		t.Fatalf("laporan selesai seharusnya diterima: %v", err)
 	}
 
-	if p.order.CurrentStatus != schema.StatusCompleted {
-		t.Errorf("status = %s, ingin completed", p.order.CurrentStatus)
+	if f.order.CurrentStatus != schema.StatusCompleted {
+		t.Errorf("status = %s, ingin completed", f.order.CurrentStatus)
 	}
-	if p.request.Status != schema.CancellationPendingSettlement {
-		t.Errorf("permintaan pembatalan = %s, ingin pending_settlement", p.request.Status)
+	if f.request.Status != schema.CancellationPendingSettlement {
+		t.Errorf("permintaan pembatalan = %s, ingin pending_settlement", f.request.Status)
 	}
 	// Belum ada yang memutuskan apa pun; yang berubah hanya pertanyaannya.
-	if p.request.DecidedAt != nil || p.request.DecidedByID != nil {
+	if f.request.DecidedAt != nil || f.request.DecidedByID != nil {
 		t.Error("permintaan belum diputuskan, jadi tidak boleh punya pemutus")
 	}
 
-	entri := p.eventTerakhir(t)
+	entri := f.lastEvent(t)
 	if entri.Accepted {
 		t.Error("entri ini tidak boleh ikut mengubah status")
 	}
@@ -226,50 +226,50 @@ func TestPermintaanPembatalanMenungguPenyelesaianSaatPekerjaanSelesai(t *testing
 
 	// Permintaan yang menunggu penyelesaian sudah menjadi tugas di antrean
 	// koordinator. Menambah alert berarti dua mekanisme untuk satu keadaan.
-	if len(p.repo.alerts) != 0 {
-		t.Errorf("tidak perlu alert terpisah, dapat %d", len(p.repo.alerts))
+	if len(f.repo.alerts) != 0 {
+		t.Errorf("tidak perlu alert terpisah, dapat %d", len(f.repo.alerts))
 	}
 
 	// Kursor real-time harus menunjuk entri terakhir, bukan entri transisinya —
 	// kalau tidak, layar koordinator tidak pernah menerima perubahan ini.
-	if p.repo.notified != entri.Seq {
-		t.Errorf("seq yang disiarkan = %d, ingin %d", p.repo.notified, entri.Seq)
+	if f.repo.notified != entri.Seq {
+		t.Errorf("seq yang disiarkan = %d, ingin %d", f.repo.notified, entri.Seq)
 	}
 }
 
 // Inti dari keputusan B-10: koordinator tetap punya tindakan. Yang berubah
 // bukan haknya, melainkan pertanyaan yang dihadapkan kepadanya.
 func TestPenyelesaianKomersialDicatatKoordinator(t *testing.T) {
-	p := siapkan(t, schema.StatusInProgress)
+	f := setup(t, schema.StatusInProgress)
 
-	if _, err := p.svc.SubmitEvent(context.Background(), p.inspektor, p.order.ID.String(),
+	if _, err := f.svc.SubmitEvent(context.Background(), f.inspector, f.order.ID.String(),
 		dto.SubmitStatusEventDTO{ToStatus: "completed", ClientEventID: "penanda-perangkat-1"}); err != nil {
 		t.Fatalf("laporan selesai seharusnya diterima: %v", err)
 	}
 
-	_, err := p.svc.SettleCancellation(context.Background(), p.koordinator,
-		p.order.ID.String(), p.request.ID.String(),
+	_, err := f.svc.SettleCancellation(context.Background(), f.coordinator,
+		f.order.ID.String(), f.request.ID.String(),
 		dto.SettleCancellationDTO{Outcome: "billed_partial", Note: "Disepakati menagih separuh biaya kunjungan"})
 	if err != nil {
 		t.Fatalf("koordinator seharusnya dapat memutuskan penyelesaian: %v", err)
 	}
 
-	if p.request.Status != schema.CancellationSettled {
-		t.Errorf("permintaan = %s, ingin settled", p.request.Status)
+	if f.request.Status != schema.CancellationSettled {
+		t.Errorf("permintaan = %s, ingin settled", f.request.Status)
 	}
-	if p.request.SettlementOutcome == nil || *p.request.SettlementOutcome != schema.SettlementBilledPartial {
-		t.Errorf("hasil = %v, ingin billed_partial", p.request.SettlementOutcome)
+	if f.request.SettlementOutcome == nil || *f.request.SettlementOutcome != schema.SettlementBilledPartial {
+		t.Errorf("hasil = %v, ingin billed_partial", f.request.SettlementOutcome)
 	}
-	if p.request.DecidedByID == nil || *p.request.DecidedByID != p.koordinator.ID {
+	if f.request.DecidedByID == nil || *f.request.DecidedByID != f.coordinator.ID {
 		t.Error("pemutus penyelesaian tidak tercatat")
 	}
 
 	// Pekerjaannya memang dikerjakan; keputusan komersial tidak mengubah itu.
-	if p.order.CurrentStatus != schema.StatusCompleted {
-		t.Errorf("status berubah menjadi %s", p.order.CurrentStatus)
+	if f.order.CurrentStatus != schema.StatusCompleted {
+		t.Errorf("status berubah menjadi %s", f.order.CurrentStatus)
 	}
 
-	entri := p.eventTerakhir(t)
+	entri := f.lastEvent(t)
 	if entri.RejectionReason == nil || *entri.RejectionReason != joborder.RejectionSettlementDecided {
 		t.Errorf("alasan = %v, ingin settlement_decided", entri.RejectionReason)
 	}
@@ -281,35 +281,35 @@ func TestPenyelesaianKomersialDicatatKoordinator(t *testing.T) {
 // Selama pekerjaan masih berjalan, yang berlaku adalah keputusan pembatalan —
 // bukan penyelesaian. Dua jalur ini tidak boleh saling menggantikan.
 func TestPenyelesaianDitolakSelamaPekerjaanMasihBerjalan(t *testing.T) {
-	p := siapkan(t, schema.StatusInProgress)
+	f := setup(t, schema.StatusInProgress)
 
-	_, err := p.svc.SettleCancellation(context.Background(), p.koordinator,
-		p.order.ID.String(), p.request.ID.String(),
+	_, err := f.svc.SettleCancellation(context.Background(), f.coordinator,
+		f.order.ID.String(), f.request.ID.String(),
 		dto.SettleCancellationDTO{Outcome: "waived", Note: "Coba menyelesaikan terlalu dini"})
 	if err == nil {
 		t.Fatal("penyelesaian atas permintaan yang masih menunggu keputusan seharusnya ditolak")
 	}
-	if got := statusHTTP(t, err); got != http.StatusConflict {
+	if got := httpStatus(t, err); got != http.StatusConflict {
 		t.Errorf("status = %d, ingin %d", got, http.StatusConflict)
 	}
-	if p.request.Status != schema.CancellationPending {
-		t.Errorf("permintaan berubah menjadi %s", p.request.Status)
+	if f.request.Status != schema.CancellationPending {
+		t.Errorf("permintaan berubah menjadi %s", f.request.Status)
 	}
 }
 
 func TestKeputusanPembatalanDitolakSetelahOrderFinal(t *testing.T) {
-	p := siapkan(t, schema.StatusCompleted)
+	f := setup(t, schema.StatusCompleted)
 
-	_, err := p.svc.DecideCancellation(context.Background(), p.koordinator,
-		p.order.ID.String(), p.request.ID.String(), dto.DecideCancellationDTO{Decision: "approve"})
+	_, err := f.svc.DecideCancellation(context.Background(), f.coordinator,
+		f.order.ID.String(), f.request.ID.String(), dto.DecideCancellationDTO{Decision: "approve"})
 	if err == nil {
 		t.Fatal("menyetujui pembatalan atas order final seharusnya ditolak")
 	}
-	if got := statusHTTP(t, err); got != http.StatusConflict {
+	if got := httpStatus(t, err); got != http.StatusConflict {
 		t.Errorf("status = %d, ingin %d", got, http.StatusConflict)
 	}
-	if p.order.CurrentStatus != schema.StatusCompleted {
-		t.Errorf("status final berubah menjadi %s", p.order.CurrentStatus)
+	if f.order.CurrentStatus != schema.StatusCompleted {
+		t.Errorf("status final berubah menjadi %s", f.order.CurrentStatus)
 	}
 }
 
@@ -317,22 +317,22 @@ func TestKeputusanPembatalanDitolakSetelahOrderFinal(t *testing.T) {
 // menunggu. Permintaan itu terpenuhi, bukan gugur — klien mendapat persis yang
 // ia minta, dan tidak ada yang perlu ditindaklanjuti.
 func TestPembatalanLangsungKoordinatorMemenuhiPermintaanKlien(t *testing.T) {
-	p := siapkan(t, schema.StatusInProgress)
+	f := setup(t, schema.StatusInProgress)
 
-	_, err := p.svc.Cancel(context.Background(), p.koordinator, p.order.ID.String(),
+	_, err := f.svc.Cancel(context.Background(), f.coordinator, f.order.ID.String(),
 		dto.CancelJobOrderDTO{Reason: "Disepakati lewat telepon"})
 	if err != nil {
 		t.Fatalf("koordinator seharusnya boleh membatalkan: %v", err)
 	}
 
-	if p.order.CurrentStatus != schema.StatusCancelled {
-		t.Errorf("status = %s, ingin cancelled", p.order.CurrentStatus)
+	if f.order.CurrentStatus != schema.StatusCancelled {
+		t.Errorf("status = %s, ingin cancelled", f.order.CurrentStatus)
 	}
-	if p.request.Status != schema.CancellationApproved {
-		t.Errorf("permintaan pembatalan = %s, ingin approved", p.request.Status)
+	if f.request.Status != schema.CancellationApproved {
+		t.Errorf("permintaan pembatalan = %s, ingin approved", f.request.Status)
 	}
-	if len(p.repo.alerts) != 0 {
-		t.Errorf("tidak perlu ada tanda bagi koordinator, dapat %d", len(p.repo.alerts))
+	if len(f.repo.alerts) != 0 {
+		t.Errorf("tidak perlu ada tanda bagi koordinator, dapat %d", len(f.repo.alerts))
 	}
 }
 
@@ -341,19 +341,19 @@ func TestPembatalanLangsungKoordinatorMemenuhiPermintaanKlien(t *testing.T) {
 // 403, sedangkan keadaan yang kebetulan tidak mengizinkan menjawab 409. Klien
 // yang menerima 403 menyembunyikan tombolnya; yang menerima 409 memuat ulang.
 func TestPenolakanPembatalanMembedakanWewenangDariKeadaan(t *testing.T) {
-	p := siapkan(t, schema.StatusOnSite)
+	f := setup(t, schema.StatusOnSite)
 
-	_, err := p.svc.Cancel(context.Background(), p.inspektor, p.order.ID.String(),
+	_, err := f.svc.Cancel(context.Background(), f.inspector, f.order.ID.String(),
 		dto.CancelJobOrderDTO{Reason: "Lokasinya terlalu jauh"})
-	if got := statusHTTP(t, err); got != http.StatusForbidden {
+	if got := httpStatus(t, err); got != http.StatusForbidden {
 		t.Errorf("inspektor membatalkan: status = %d, ingin %d", got, http.StatusForbidden)
 	}
 
-	p.order.CurrentStatus = schema.StatusCompleted
+	f.order.CurrentStatus = schema.StatusCompleted
 
-	_, err = p.svc.Cancel(context.Background(), p.koordinator, p.order.ID.String(),
+	_, err = f.svc.Cancel(context.Background(), f.coordinator, f.order.ID.String(),
 		dto.CancelJobOrderDTO{Reason: "Diminta klien lewat telepon"})
-	if got := statusHTTP(t, err); got != http.StatusConflict {
+	if got := httpStatus(t, err); got != http.StatusConflict {
 		t.Errorf("koordinator membatalkan order final: status = %d, ingin %d", got, http.StatusConflict)
 	}
 }
@@ -365,26 +365,26 @@ func TestPenolakanPembatalanMembedakanWewenangDariKeadaan(t *testing.T) {
 // Urutannya juga dijaga: field id pada pesan SSE diisi seq, dan browser
 // mengirim balik nilai TERAKHIR yang ia terima sebagai Last-Event-ID.
 func TestPemulihanMemakaiSatuKueriDanMenjagaUrutan(t *testing.T) {
-	p := siapkan(t, schema.StatusInProgress)
-	p.repo.changed = []schema.JobOrder{
+	f := setup(t, schema.StatusInProgress)
+	f.repo.changed = []schema.JobOrder{
 		{ID: uuid.New(), ReferenceNumber: "JO-2026-0007"},
 		{ID: uuid.New(), ReferenceNumber: "JO-2026-0002"},
 		{ID: uuid.New(), ReferenceNumber: "JO-2026-0005"},
 	}
 
-	snapshots, err := p.svc.SnapshotsChangedSince(context.Background(), 12)
+	snapshots, err := f.svc.SnapshotsChangedSince(context.Background(), 12)
 	if err != nil {
 		t.Fatalf("pemulihan gagal: %v", err)
 	}
 
-	if p.repo.changedCalls != 1 {
-		t.Errorf("jumlah kueri pemulihan = %d, mau 1", p.repo.changedCalls)
+	if f.repo.changedCalls != 1 {
+		t.Errorf("jumlah kueri pemulihan = %d, mau 1", f.repo.changedCalls)
 	}
 
-	if len(snapshots) != len(p.repo.changed) {
-		t.Fatalf("jumlah snapshot = %d, mau %d", len(snapshots), len(p.repo.changed))
+	if len(snapshots) != len(f.repo.changed) {
+		t.Fatalf("jumlah snapshot = %d, mau %d", len(snapshots), len(f.repo.changed))
 	}
-	for i, want := range p.repo.changed {
+	for i, want := range f.repo.changed {
 		if snapshots[i].ReferenceNumber != want.ReferenceNumber {
 			t.Errorf("snapshot ke-%d = %s, mau %s",
 				i, snapshots[i].ReferenceNumber, want.ReferenceNumber)

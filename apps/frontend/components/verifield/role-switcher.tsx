@@ -39,7 +39,7 @@ export function RoleSwitcher({ persona, className }: { persona: Persona; classNa
   const router = useRouter()
   const [, aktif = ""] = pathname.split("/")
 
-  const pilihan = actors.filter((a) => a.role === PERSONA_ROLE[persona])
+  const options = actors.filter((a) => a.role === PERSONA_ROLE[persona])
 
   // Baik berpindah peran maupun berganti aktor selalu mendarat di daftar peran
   // tujuan, tidak pernah di order yang sedang dibuka. Setiap peran dan setiap
@@ -82,7 +82,7 @@ export function RoleSwitcher({ persona, className }: { persona: Persona; classNa
         )
       })}
 
-      {pilihan.length > 1 ? (
+      {options.length > 1 ? (
         <span className="mx-0.5 flex items-center gap-1 border-l border-border/70 pl-1">
           <UsersIcon className="size-3.5 text-muted-foreground" />
           <Select value={actorId} onValueChange={(v) => pilihAktor(String(v))}>
@@ -91,11 +91,11 @@ export function RoleSwitcher({ persona, className }: { persona: Persona; classNa
               className="h-7 max-w-44 border-0 bg-transparent px-1.5 shadow-none focus-visible:ring-2"
             >
               <SelectValue>
-                {pilihan.find((a) => a.id === actorId)?.name}
+                {options.find((a) => a.id === actorId)?.name}
               </SelectValue>
             </SelectTrigger>
             <SelectContent align="end" className="w-auto min-w-(--anchor-width)">
-              {pilihan.map((a) => (
+              {options.map((a) => (
                 <SelectItem key={a.id} value={a.id} label={actorLabel(a)}>
                   {actorLabel(a)}
                 </SelectItem>

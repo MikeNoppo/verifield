@@ -92,20 +92,20 @@ export function NextAction({ order }: { order: JobOrder }) {
 
       {/* Melaporkan kendala menutup pekerjaan, jadi sengaja dibuat kecil dan
           butuh langkah tambahan. Tidak ada tombol batal di mana pun (B-04). */}
-      {kendala ? <KendalaDialog label={kendala.label} onKirim={laporkan} /> : null}
+      {kendala ? <KendalaDialog label={kendala.label} onSubmit={laporkan} /> : null}
     </div>
   )
 }
 
 function KendalaDialog({
   label,
-  onKirim,
+  onSubmit,
 }: {
   label: string
-  onKirim: (to: Status, reason: string) => void
+  onSubmit: (to: Status, reason: string) => void
 }) {
   const [open, setOpen] = React.useState(false)
-  const [alasan, setAlasan] = React.useState("")
+  const [reason, setReason] = React.useState("")
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -125,8 +125,8 @@ function KendalaDialog({
 
         <Textarea
           rows={3}
-          value={alasan}
-          onChange={(e) => setAlasan(e.target.value)}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
           placeholder="Apa yang menghalangi pekerjaan?"
           className="text-sm"
         />
@@ -135,11 +135,11 @@ function KendalaDialog({
           <DialogClose render={<Button variant="secondary" />}>Kembali</DialogClose>
           <Button
             variant="destructive"
-            disabled={alasan.trim().length < 3}
+            disabled={reason.trim().length < 3}
             onClick={() => {
-              onKirim("failed", alasan.trim())
+              onSubmit("failed", reason.trim())
               setOpen(false)
-              setAlasan("")
+              setReason("")
             }}
           >
             Kirim Laporan

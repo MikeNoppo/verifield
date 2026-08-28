@@ -17,7 +17,7 @@ import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveList } from "@/lib/live/hooks"
 import { inBucket, type Bucket } from "@/lib/domain/summary"
 import type { JobOrder } from "@/lib/domain/types"
-import { sejak, tanggalJam } from "@/lib/format"
+import { relativeTime, formatDateTime } from "@/lib/format"
 
 /** Penyaringan dilakukan di sini, bukan di server, supaya baris yang statusnya
     berubah lewat stream langsung berpindah saringan tanpa memuat ulang halaman.
@@ -88,7 +88,7 @@ export function KlienOrderList({
               </TableCell>
 
               <TableCell className="tabular hidden align-middle text-xs text-muted-foreground lg:table-cell">
-                {tanggalJam(o.scheduledAt)}
+                {formatDateTime(o.scheduledAt)}
               </TableCell>
 
               {/* Rel menjawab "orangnya sudah berangkat belum" tanpa perlu
@@ -101,7 +101,7 @@ export function KlienOrderList({
               </TableCell>
 
               <TableCell className="tabular hidden text-right align-middle text-xs text-muted-foreground sm:table-cell">
-                {sejak(o.statusChangedAt, now)}
+                {relativeTime(o.statusChangedAt, now)}
               </TableCell>
             </TableRow>
           ))}

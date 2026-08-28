@@ -22,17 +22,17 @@ func orderOf(companyID uuid.UUID, inspectorID *uuid.UUID) dto.JobOrderResponse {
 func TestScopeMenyaringPerPeran(t *testing.T) {
 	perusahaan := uuid.New()
 	perusahaanLain := uuid.New()
-	inspektor := uuid.New()
+	inspector := uuid.New()
 	inspektorLain := uuid.New()
 
-	milikKlien := orderOf(perusahaan, &inspektor)
+	milikKlien := orderOf(perusahaan, &inspector)
 	milikOrangLain := orderOf(perusahaanLain, &inspektorLain)
 
 	cases := []struct {
-		nama  string
+		name  string
 		scope realtime.Scope
 		order dto.JobOrderResponse
-		mau   bool
+		want  bool
 	}{
 		{
 			"klien menerima order perusahaannya",
@@ -51,17 +51,17 @@ func TestScopeMenyaringPerPeran(t *testing.T) {
 		},
 		{
 			"inspektor menerima penugasannya sendiri",
-			realtime.Scope{Role: schema.RoleInspector, InspectorID: &inspektor},
+			realtime.Scope{Role: schema.RoleInspector, InspectorID: &inspector},
 			milikKlien, true,
 		},
 		{
 			"inspektor tidak menerima penugasan orang lain",
-			realtime.Scope{Role: schema.RoleInspector, InspectorID: &inspektor},
+			realtime.Scope{Role: schema.RoleInspector, InspectorID: &inspector},
 			milikOrangLain, false,
 		},
 		{
 			"inspektor tidak menerima order yang belum ditugaskan",
-			realtime.Scope{Role: schema.RoleInspector, InspectorID: &inspektor},
+			realtime.Scope{Role: schema.RoleInspector, InspectorID: &inspector},
 			orderOf(perusahaan, nil), false,
 		},
 		{
@@ -77,9 +77,9 @@ func TestScopeMenyaringPerPeran(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.nama, func(t *testing.T) {
-			if got := c.scope.Allows(c.order); got != c.mau {
-				t.Errorf("Allows = %v, mau %v", got, c.mau)
+		t.Run(c.name, func(t *testing.T) {
+			if got := c.scope.Allows(c.order); got != c.want {
+				t.Errorf("Allows = %v, mau %v", got, c.want)
 			}
 		})
 	}

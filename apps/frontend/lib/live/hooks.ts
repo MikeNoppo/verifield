@@ -37,8 +37,8 @@ export function useLiveList(initial: JobOrder[]): JobOrder[] {
   return React.useMemo(
     () =>
       initial.map((order) => {
-        const terbaru = live.orders.get(order.id)
-        return terbaru && terbaru.seq > order.seq ? terbaru : order
+        const latest = live.orders.get(order.id)
+        return latest && latest.seq > order.seq ? latest : order
       }),
     [initial, live],
   )
@@ -46,14 +46,14 @@ export function useLiveList(initial: JobOrder[]): JobOrder[] {
 
 export function useLiveOrder(initial: JobOrder): JobOrder {
   const live = useLive()
-  const terbaru = live.orders.get(initial.id)
+  const latest = live.orders.get(initial.id)
 
   return React.useMemo(() => {
-    if (!terbaru || terbaru.seq <= initial.seq) return initial
+    if (!latest || latest.seq <= initial.seq) return initial
     // Snapshot real-time sengaja tidak membawa riwayat; riwayat yang sudah
     // dimiliki halaman dipertahankan dan dilengkapi useLiveEvents.
-    return { ...terbaru, events: initial.events }
-  }, [initial, terbaru])
+    return { ...latest, events: initial.events }
+  }, [initial, latest])
 }
 
 /** Melengkapi timeline dengan entri yang muncul setelah halaman dirender.
@@ -64,48 +64,48 @@ export function useLiveOrder(initial: JobOrder): JobOrder {
  *  oleh layar yang memang sedang menampilkan riwayat. */
 export function useLiveEvents(order: JobOrder, actorId: string): StatusEvent[] {
   const live = useLiveOrder(order)
-  const [tambahan, setTambahan] = React.useState<StatusEvent[]>([])
+  const [extra, setExtra] = React.useState<StatusEvent[]>([])
 
   // Batas seq yang sudah pernah diminta. Disimpan di ref supaya perubahannya
   // tidak memicu effect berikutnya — kalau tidak, setiap pengambilan akan
   // menjadwalkan pengambilan berikutnya tanpa henti.
-  const diminta = React.useRef(0)
+  const requestedUpTo = React.useRef(0)
 
   React.useEffect(() => {
-    const dimiliki = Math.max(
+    const held = Math.max(
       0,
       ...order.events.map((e) => e.seq),
-      ...tambahan.map((e) => e.seq),
+      ...extra.map((e) => e.seq),
     )
-    if (live.seq <= dimiliki || live.seq <= diminta.current) return
+    if (live.seq <= held || live.seq <= requestedUpTo.current) return
 
-    diminta.current = live.seq
-    let dibatalkan = false
+    requestedUpTo.current = live.seq
+    let cancelled = false
 
-    listEvents(actorId, order.id, dimiliki)
-      .then((baru) => {
-        if (dibatalkan || baru.length === 0) return
-        setTambahan((sebelumnya) => {
-          const terlihat = new Set(sebelumnya.map((e) => e.id))
-          return [...sebelumnya, ...baru.filter((e) => !terlihat.has(e.id))]
+    listEvents(actorId, order.id, held)
+      .then((fetched) => {
+        if (cancelled || fetched.length === 0) return
+        setExtra((previous) => {
+          const seen = new Set(previous.map((e) => e.id))
+          return [...previous, ...fetched.filter((e) => !seen.has(e.id))]
         })
       })
       .catch(() => {
         // Timeline akan menyusul pada perubahan berikutnya, atau saat halaman
         // dibuka ulang. Kegagalan di sini tidak layak mengganggu layar.
-        diminta.current = 0
+        requestedUpTo.current = 0
       })
 
     return () => {
-      dibatalkan = true
+      cancelled = true
     }
-  }, [live.seq, order.id, order.events, tambahan, actorId])
+  }, [live.seq, order.id, order.events, extra, actorId])
 
   return React.useMemo(() => {
-    if (tambahan.length === 0) return order.events
-    const terlihat = new Set(order.events.map((e) => e.id))
-    return [...order.events, ...tambahan.filter((e) => !terlihat.has(e.id))]
-  }, [order.events, tambahan])
+    if (extra.length === 0) return order.events
+    const seen = new Set(order.events.map((e) => e.id))
+    return [...order.events, ...extra.filter((e) => !seen.has(e.id))]
+  }, [order.events, extra])
 }
 
 /** Menerapkan hasil mutasi ke store agar layar berubah seketika, tanpa menunggu
