@@ -1,7 +1,7 @@
 # Verifield — Panduan Menguji Seluruh Alur
 
 Panduan ini menjalankan PoC dari awal sampai akhir: setiap alur bisnis, setiap
-keputusan B-01…B-09, dan jawaban atas pertanyaan desain wajib dapat dibuktikan
+keputusan B-01…B-11, dan jawaban atas pertanyaan desain wajib dapat dibuktikan
 lewat langkah-langkah di bawah. Nomor keputusan merujuk ke
 [01-business-context.md](01-business-context.md).
 
@@ -42,11 +42,15 @@ kenali lewat objeknya):
 | 40 kontainer CPO | SEN | `Requested` | — |
 | Tangki timbun T-401 | BTP | `Cancelled` + laporan telat ditolak (B-07) | Joko |
 
-**Mengembalikan data contoh** setelah dicoba-coba:
+**Mengembalikan data contoh** setelah dicoba-coba — seeder melewati pengisian
+bila sudah ada order, sehingga datanya harus dihapus lebih dulu:
 
 ```bash
-docker compose down -v && docker compose up -d
+docker compose down -v && docker compose up -d --build
 ```
+
+Untuk mode pengembangan (database saja di Docker): `bun run db:reset` lalu
+`bun run migrate && bun run seed`.
 
 ---
 
@@ -241,9 +245,10 @@ input di lapangan tidak punya jalan keluar sama sekali.
 curl -N "http://localhost:8080/api/v1/stream?last_event_id=0&actor_id=<id-aktor>"
 ```
 
-Biarkan terbuka, lalu ubah status lewat tab lain → pesan `event: order` dengan
-`id: <seq>` masuk ke terminal. Matikan `curl`, ubah status sekali lagi, sambungkan
-ulang dengan `last_event_id=<seq-terakhir>` → perubahan yang terlewat terkirim ulang.
+Biarkan terbuka, lalu ubah status lewat tab lain → pesan `event: order.updated`
+dengan `id: <seq>` masuk ke terminal. Matikan `curl`, ubah status sekali lagi,
+sambungkan ulang dengan `last_event_id=<seq-terakhir>` → perubahan yang terlewat
+terkirim ulang, terurut menaik menurut `seq`.
 
 ---
 
@@ -255,6 +260,11 @@ Respons memakai envelope `{success, message, data}`.
 ```bash
 BASE=http://localhost:8080/api/v1
 ACTOR=<id-aktor>
+
+# Sebagian contoh di bawah menuntut peran tertentu — ambil dari /demo/actors.
+KLIEN=<id-klien>
+KOORDINATOR=<id-koordinator>
+INSPEKTOR=<id-inspektor>
 
 # Daftar aktor, jenis inspeksi, inspektor
 curl -s $BASE/demo/actors | jq
@@ -271,17 +281,45 @@ curl -s -X POST -H "X-Actor-Id: $ACTOR" -H "Content-Type: application/json" \
   "$BASE/orders/<id-order-milik-aktor>/events" | jq
 # kirim ulang persis sama → { "duplicate": true, "accepted": true }
 
-# Urutan (B-06): transisi mundur ditolak tetapi tetap tercatat
-curl -s -X POST -H "X-Actor-Id: $ACTOR" -H "Content-Type: application/json" \
-  -d '{"to_status":"assigned","client_event_id":"uji-mundur-1"}' \
+# Urutan (B-06), arah MUNDUR: laporan menuntut tahap yang sudah terlewati.
+# Kirim ke order yang sudah In Progress.
+curl -s -X POST -H "X-Actor-Id: $INSPEKTOR" -H "Content-Type: application/json" \
+  -d '{"to_status":"on_the_way","client_event_id":"uji-mundur-1"}' \
   "$BASE/orders/<id-order-in-progress>/events" | jq
-# → accepted=false, rejection_reason="out_of_order"
+# → accepted=false, rejection_reason="out_of_order", status tidak berubah
 
-# Concurrency (B-09): versi basi
-curl -s -X POST -H "X-Actor-Id: $ACTOR" -H "Content-Type: application/json" \
-  -d '{"inspector_id":"<id>","expected_version":0}' \
-  "$BASE/orders/<id>/assign" | jq
+# Urutan (B-06), arah MELOMPAT: laporan melewati tahap yang belum dilaporkan.
+# Kirim ke order yang baru On The Way.
+curl -s -X POST -H "X-Actor-Id: $INSPEKTOR" -H "Content-Type: application/json" \
+  -d '{"to_status":"completed","client_event_id":"uji-melompat-1"}' \
+  "$BASE/orders/<id-order-on-the-way>/events" | jq
+# → accepted=false, rejection_reason="skipped_step", dan pesannya menyebut
+#   tahap yang sedang berlaku agar inspektor tahu apa yang harus ia tekan
+
+# Concurrency (B-09): versi basi. expected_version harus >= 1 dan lebih kecil
+# daripada versi order sekarang — kirim 1 pada order yang sudah beberapa kali
+# berubah. Mengirim 0 hanya menghasilkan 422: nol adalah nilai kosong.
+curl -s -X POST -H "X-Actor-Id: $KOORDINATOR" -H "Content-Type: application/json" \
+  -d '{"inspector_id":"<id-inspektor>","expected_version":1}' \
+  "$BASE/orders/<id-order-versi-lebih-tinggi>/assign" | jq
 # → 409 dengan penjelasan
+
+# Wewenang vs keadaan: dua penolakan, dua status berbeda
+curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+  -H "X-Actor-Id: $INSPEKTOR" -H "Content-Type: application/json" \
+  -d '{"reason":"Lokasinya terlalu jauh"}' "$BASE/orders/<id>/cancel"
+# → 403: inspektor tidak pernah berwenang membatalkan (B-04)
+curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+  -H "X-Actor-Id: $KOORDINATOR" -H "Content-Type: application/json" \
+  -d '{"reason":"Diminta klien"}' "$BASE/orders/<id-order-final>/cancel"
+# → 409: wewenangnya ada, keadaannya yang tidak mengizinkan
+
+# Jadwal ditegakkan di server, bukan hanya di formulir
+curl -s -X POST -H "X-Actor-Id: $KLIEN" -H "Content-Type: application/json" \
+  -d '{"inspection_type_id":"<id-jenis>","object_description":"Uji jadwal","location_name":"Gudang Uji","location_address":"Jl. Uji 1","city":"Medan","scheduled_start_at":"2019-01-01T02:00:00Z","scheduled_end_at":"2019-01-01T06:00:00Z"}' \
+  "$BASE/orders" | jq
+# → 422 pada field scheduled_start_at: "Jadwal yang diminta sudah lewat."
+#   Coba juga jam mulai pukul 23.00 → ditolak sebagai di luar jam kerja.
 
 # Laporan terlambat (B-07): kirim completed ke order yang sudah Cancelled
 # → accepted=false, rejection_reason="late_after_final", alert dibuat (cek /ops)
@@ -302,6 +340,7 @@ curl -s -H "X-Actor-Id: $ACTOR" "$BASE/orders/<id>/events?after_seq=0" | jq
 | B-04 inspektor tak bisa membatalkan | Tidak ada tombol batal di `/lapangan`; `Failed` ber-alasan | §3 |
 | B-05 pembatalan jadi permintaan | "Ajukan Pembatalan" + keputusan koordinator | §1.5, §2.4 |
 | B-06 hanya maju, koreksi resmi | Transisi mundur ditolak; koreksi beralasan | §5, §2.3 |
+| B-06 arah penolakan dibedakan | Mundur → `out_of_order`; melompat → `skipped_step` beserta tahap yang kurang | §5 |
 | B-07 terlambat tetap dicatat | Entri ditolak + alert di `/ops` | §2.6, §5 |
 | B-09 perubahan pertama menang | 409 + penjelasan di tab kedua | §2.2 |
 | B-10 permintaan jadi keputusan penyelesaian | Status final tetap; panel berganti pertanyaan; hasil + catatan masuk riwayat | §2.5 |
@@ -309,4 +348,6 @@ curl -s -H "X-Actor-Id: $ACTOR" "$BASE/orders/<id>/events?after_seq=0" | jq
 | F-06 koreksi tetap mungkin | Tombol koreksi tersedia juga pada order final | §2.5a |
 | A-03 kerahasiaan antar klien | Order perusahaan lain → 404 | §1.2 |
 | Batas baca inspektor | Order bukan tugasnya → 404, daftar tersaring server | §3.2 |
+| Wewenang vs keadaan | Inspektor membatalkan → 403; order final → 409 | §5 |
+| Jadwal ditegakkan server | Jadwal lampau / di luar jam kerja → 422 walau formulir dilewati | §5 |
 | SSE + missed events | Tab berubah tanpa refresh; reconnect mengirim ulang | §3.3, §4 |

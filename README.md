@@ -40,6 +40,15 @@ bun run dev          # frontend :3000 dan backend :8080 sekaligus
 Tanpa Docker sama sekali, ganti `bun run db:up` dengan PostgreSQL yang sudah
 terpasang, lalu `createdb verifield`.
 
+**Mengembalikan data contoh** setelah dicoba-coba. Seeder melewati pengisian bila
+database sudah berisi order, jadi datanya harus dihapus lebih dulu:
+
+```bash
+docker compose down -v && docker compose up -d --build
+```
+
+Pada mode pengembangan: `bun run db:reset`, lalu `bun run migrate && bun run seed`.
+
 ## Dokumen
 
 Deliverable A ada di `docs/`. Urutan bacanya dari bisnis ke teknis:
@@ -95,7 +104,9 @@ adalah kejadian jarang.
 |---|---|
 | Siklus status penuh: buat → tugaskan → berangkat → tiba → mulai → selesai | Diuji end-to-end lewat API dan tampilan |
 | Idempotency (B-03) | Tombol ditekan dua kali dengan penanda sama → satu baris riwayat, `duplicate: true` |
-| Urutan (B-06) | Laporan mundur ditolak, status tidak berubah, tetap tercatat |
+| Urutan (B-06) | Laporan mundur ditolak `out_of_order`; laporan yang melompati tahap ditolak `skipped_step` beserta kalimat yang menyebut tahap yang sedang berlaku. Keduanya tetap tercatat |
+| Jadwal ditegakkan server | Jadwal lampau, lebih dari 180 hari ke depan, di luar jam kerja, atau rentang lebih dari 24 jam → 422 walaupun formulir dilewati |
+| Wewenang vs keadaan | Inspektor membatalkan → 403; order final → 409. Dua penolakan, dua kode |
 | Laporan terlambat (B-07) | Ditolak setelah status final, dicatat, alert koordinator dibuat |
 | Concurrency (B-09) | Versi basi → 409 beserta penjelasannya |
 | Pembatalan (B-05) | `In Progress` menjadi permintaan; koordinator menolak → pekerjaan lanjut |
@@ -148,7 +159,7 @@ yang diisi dari `GET /demo/actors`.
 | GET | `/demo/actors` | Identitas siap pakai per peran — pengganti login |
 | GET | `/inspection-types` | Jenis inspeksi untuk form permintaan |
 | GET | `/inspectors` | Inspektor aktif beserta jumlah penugasan berjalan |
-| GET | `/orders` | Daftar order. Saring `status`, `company_id`, `inspector_id`, `attention` |
+| GET | `/orders` | Daftar order. Saring `status`, `company_id`, `inspector_id`, dan `attention` (`unassigned`, `cancellation`, `stale`, `late_update`) |
 | POST | `/orders` | Buat permintaan inspeksi (klien) |
 | GET | `/orders/{id}` | Detail beserta riwayat status |
 | GET | `/orders/{id}/events?after_seq=` | Riwayat sejak kursor tertentu |
