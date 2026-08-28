@@ -105,12 +105,21 @@ func (r *gormRepository) Inspectors(ctx context.Context) ([]InspectorResponse, e
 	return out, nil
 }
 
-// DemoActors mengembalikan satu pengguna per peran. Urutannya deterministik
-// (email menaik) supaya identitas yang dipakai frontend tidak berubah-ubah
-// antar pemanggilan.
+// DemoActors mengembalikan satu pengguna per peran.
+//
+// Pemilihannya deterministik, tetapi tidak sekadar mengambil yang pertama:
+// aktor demo yang layarnya kosong tidak ada gunanya bagi orang yang baru
+// membuka sistem ini. Inspektor diurutkan berdasarkan jumlah penugasan
+// berjalan, sehingga layar lapangan langsung berisi pekerjaan; klien tanpa
+// perusahaan dilewati karena ia tidak bisa melihat order apa pun (asumsi A-03).
 func (r *gormRepository) DemoActors(ctx context.Context) ([]DemoActorResponse, error) {
+	sibuk, err := r.busiestInspector(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var users []schema.User
-	err := r.db.WithContext(ctx).
+	err = r.db.WithContext(ctx).
 		Preload("Company").
 		Where("is_active = ?", true).
 		Order("role ASC, email ASC").
@@ -127,9 +136,10 @@ func (r *gormRepository) DemoActors(ctx context.Context) ([]DemoActorResponse, e
 		if seen[u.Role] {
 			continue
 		}
-		// Akun klien tanpa perusahaan tidak berguna sebagai aktor demo: ia tidak
-		// bisa melihat maupun membuat order apa pun (asumsi A-03).
 		if u.Role == schema.RoleClient && u.CompanyID == nil {
+			continue
+		}
+		if u.Role == schema.RoleInspector && sibuk != "" && u.ID.String() != sibuk {
 			continue
 		}
 		seen[u.Role] = true
@@ -152,4 +162,22 @@ func (r *gormRepository) DemoActors(ctx context.Context) ([]DemoActorResponse, e
 	}
 
 	return out, nil
+}
+
+// busiestInspector mengembalikan id inspektor dengan penugasan berjalan
+// terbanyak, atau string kosong bila tidak ada satu pun yang sedang bertugas.
+func (r *gormRepository) busiestInspector(ctx context.Context) (string, error) {
+	inspectors, err := r.Inspectors(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Inspectors() mengurutkan menaik berdasarkan beban, jadi yang paling sibuk
+	// ada di ujung.
+	for i := len(inspectors) - 1; i >= 0; i-- {
+		if inspectors[i].ActiveJobs > 0 {
+			return inspectors[i].ID, nil
+		}
+	}
+	return "", nil
 }
