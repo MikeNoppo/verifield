@@ -149,7 +149,7 @@ const docTemplate = `{
         },
         "/auth/register": {
             "post": {
-                "description": "Mendaftarkan akun baru dengan role ` + "`" + `user` + "`" + ` dan langsung menerbitkan token",
+                "description": "Mendaftarkan akun baru dengan role ` + "`" + `client` + "`" + ` dan langsung menerbitkan token",
                 "consumes": [
                     "application/json"
                 ],
@@ -706,9 +706,11 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "admin",
-                        "user"
+                        "client",
+                        "inspector",
+                        "cs"
                     ],
-                    "example": "user"
+                    "example": "client"
                 }
             }
         },
@@ -740,7 +742,9 @@ const docTemplate = `{
                     "type": "string",
                     "enum": [
                         "admin",
-                        "user"
+                        "client",
+                        "inspector",
+                        "cs"
                     ],
                     "example": "admin"
                 }
@@ -770,7 +774,7 @@ const docTemplate = `{
                 },
                 "role": {
                     "type": "string",
-                    "example": "user"
+                    "example": "client"
                 },
                 "updated_at": {
                     "type": "string"

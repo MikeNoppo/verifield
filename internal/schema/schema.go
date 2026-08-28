@@ -57,8 +57,12 @@ func All() []any {
 type Role string
 
 const (
-	RoleAdmin Role = "admin"
-	RoleUser  Role = "user"
+	// RoleAdmin adalah koordinator operasional / dispatcher. Dokumen konteks
+	// bisnis bagian 5.2 menyamakan keduanya, jadi tidak ada role terpisah.
+	RoleAdmin     Role = "admin"
+	RoleClient    Role = "client"
+	RoleInspector Role = "inspector"
+	RoleCS        Role = "cs"
 )
 
 // ---------------------------------------------------------------------------
@@ -71,7 +75,7 @@ type User struct {
 	Name      string         `gorm:"type:varchar(120);not null"               json:"name"`
 	Email     string         `gorm:"type:varchar(160);not null;uniqueIndex"   json:"email"`
 	Password  string         `gorm:"type:varchar(255);not null"               json:"-"` // jangan pernah dikirim ke client
-	Role      Role           `gorm:"type:varchar(20);not null;default:user"   json:"role"`
+	Role      Role           `gorm:"type:varchar(20);not null;default:client" json:"role"`
 	IsActive  bool           `gorm:"not null;default:true"                    json:"is_active"`
 	CreatedAt time.Time      `                                                json:"created_at"`
 	UpdatedAt time.Time      `                                                json:"updated_at"`
@@ -86,7 +90,7 @@ func (u *User) BeforeCreate(*gorm.DB) error {
 		u.ID = uuid.New()
 	}
 	if u.Role == "" {
-		u.Role = RoleUser
+		u.Role = RoleClient
 	}
 	return nil
 }

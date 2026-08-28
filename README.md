@@ -88,7 +88,7 @@ curl -X POST localhost:8080/api/v1/auth/login -H 'Content-Type: application/json
 curl localhost:8080/api/v1/auth/me -H "Authorization: Bearer <access_token>"
 ```
 
-Registrasi publik selalu menghasilkan role `user`. Admin pertama dibuat lewat `make seed` (baca `SEED_ADMIN_*` dari `.env`).
+Role yang tersedia: `admin` (koordinator operasional), `client`, `inspector`, `cs`. Registrasi publik selalu menghasilkan role `client`. Admin pertama dibuat lewat `make seed` (baca `SEED_ADMIN_*` dari `.env`).
 
 ## Bentuk response
 
@@ -116,7 +116,7 @@ Seluruh schema ada di **satu file**: [internal/schema/schema.go](internal/schema
 type User struct {
     ID    uuid.UUID `gorm:"type:uuid;primaryKey"`
     Email string    `gorm:"type:varchar(160);not null;uniqueIndex"`
-    Role  Role      `gorm:"type:varchar(20);not null;default:user"`
+    Role  Role      `gorm:"type:varchar(20);not null;default:client"`
 }
 ```
 

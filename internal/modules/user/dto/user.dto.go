@@ -13,7 +13,7 @@ type CreateUserDTO struct {
 	Name     string `json:"name"     binding:"required,min=3,max=120"  example:"Siti Rahma"`
 	Email    string `json:"email"    binding:"required,email,max=160"  example:"siti@verifield.id"`
 	Password string `json:"password" binding:"required,min=8,max=72"   example:"rahasia123"`
-	Role     string `json:"role"     binding:"omitempty,oneof=admin user" example:"user"`
+	Role     string `json:"role"     binding:"omitempty,oneof=admin client inspector cs" example:"client"`
 }
 
 // UpdateUserDTO memakai pointer supaya field yang tidak dikirim tidak ikut
@@ -22,7 +22,7 @@ type UpdateUserDTO struct {
 	Name     *string `json:"name"      binding:"omitempty,min=3,max=120"     example:"Siti Rahma"`
 	Email    *string `json:"email"     binding:"omitempty,email,max=160"     example:"siti@verifield.id"`
 	Password *string `json:"password"  binding:"omitempty,min=8,max=72"      example:"rahasia123"`
-	Role     *string `json:"role"      binding:"omitempty,oneof=admin user"  example:"admin"`
+	Role     *string `json:"role"      binding:"omitempty,oneof=admin client inspector cs"  example:"admin"`
 	IsActive *bool   `json:"is_active"                                       example:"true"`
 }
 
@@ -31,7 +31,7 @@ type UserResponse struct {
 	ID        string    `json:"id"         example:"6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11"`
 	Name      string    `json:"name"       example:"Siti Rahma"`
 	Email     string    `json:"email"      example:"siti@verifield.id"`
-	Role      string    `json:"role"       example:"user"`
+	Role      string    `json:"role"       example:"client"`
 	IsActive  bool      `json:"is_active"  example:"true"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

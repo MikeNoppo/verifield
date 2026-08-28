@@ -22,7 +22,7 @@ func NewController(service Service) *Controller {
 // Register godoc
 //
 //	@Summary		Registrasi user baru
-//	@Description	Mendaftarkan akun baru dengan role `user` dan langsung menerbitkan token
+//	@Description	Mendaftarkan akun baru dengan role `client` dan langsung menerbitkan token
 //	@Tags			auth
 //	@Accept			json
 //	@Produce		json

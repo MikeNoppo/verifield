@@ -67,7 +67,7 @@ func (s *service) CreateEntity(ctx context.Context, input dto.CreateUserDTO) (*s
 
 	role := schema.Role(input.Role)
 	if role == "" {
-		role = schema.RoleUser
+		role = schema.RoleClient
 	}
 
 	user := &schema.User{

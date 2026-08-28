@@ -123,8 +123,10 @@ definitions:
       role:
         enum:
         - admin
-        - user
-        example: user
+        - client
+        - inspector
+        - cs
+        example: client
         type: string
     required:
     - email
@@ -153,7 +155,9 @@ definitions:
       role:
         enum:
         - admin
-        - user
+        - client
+        - inspector
+        - cs
         example: admin
         type: string
     type: object
@@ -174,7 +178,7 @@ definitions:
         example: Siti Rahma
         type: string
       role:
-        example: user
+        example: client
         type: string
       updated_at:
         type: string
@@ -267,7 +271,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Mendaftarkan akun baru dengan role `user` dan langsung menerbitkan
+      description: Mendaftarkan akun baru dengan role `client` dan langsung menerbitkan
         token
       parameters:
       - description: Data registrasi

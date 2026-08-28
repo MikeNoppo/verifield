@@ -81,7 +81,7 @@ func newTestEngine(t *testing.T) (*gin.Engine, *schema.User) {
 		Name:     "Siti Rahma",
 		Email:    "siti@verifield.id",
 		Password: hashed,
-		Role:     schema.RoleUser,
+		Role:     schema.RoleClient,
 		IsActive: true,
 	}
 

@@ -33,7 +33,7 @@ func (s *service) Register(ctx context.Context, input dto.RegisterDTO) (*dto.Aut
 		Name:     input.Name,
 		Email:    input.Email,
 		Password: input.Password,
-		Role:     string(schema.RoleUser), // registrasi publik selalu jadi user biasa
+		Role:     string(schema.RoleClient), // registrasi publik selalu jadi klien
 	})
 	if err != nil {
 		return nil, err
