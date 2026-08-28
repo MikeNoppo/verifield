@@ -1097,6 +1097,12 @@ export interface components {
             /** @example Batu bara 5.000 MT */
             object_description: string;
             scheduled_end_at: string;
+            /**
+             * @description Kewajaran jadwal — belum lewat, tidak terlalu jauh ke depan, dan berada
+             *     pada jam kerja lapangan — diperiksa SchedulePolicy, bukan tag binding:
+             *     aturannya bergantung pada waktu sekarang dan pada zona operasi, yang
+             *     keduanya tidak dapat dinyatakan sebagai tag statis.
+             */
             scheduled_start_at: string;
         };
         "verifield-be_internal_modules_joborder_dto.DecideCancellationDTO": {
@@ -1211,7 +1217,7 @@ export interface components {
              * @example late_after_final
              * @enum {string}
              */
-            rejection_reason?: "late_after_final" | "out_of_order" | "pending_approval" | "cancellation_rejected" | "settlement_pending" | "settlement_decided";
+            rejection_reason?: "late_after_final" | "out_of_order" | "skipped_step" | "pending_approval" | "cancellation_rejected" | "settlement_pending" | "settlement_decided";
             /** @example 42 */
             seq?: number;
             /**

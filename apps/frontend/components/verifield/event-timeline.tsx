@@ -4,6 +4,7 @@ import {
   HandshakeIcon,
   PencilLineIcon,
   RotateCcwIcon,
+  SkipForwardIcon,
   TriangleAlertIcon,
 } from "lucide-react"
 
@@ -39,6 +40,7 @@ const APPLIED: Record<EventKind, boolean> = {
   correction: true,
   late_rejected: false,
   out_of_order: false,
+  skipped_step: false,
   cancellation_request: false,
   cancellation_rejected: false,
   settlement_pending: false,
@@ -50,6 +52,7 @@ const ICON: Partial<Record<EventKind, typeof CloudOffIcon>> = {
   correction: PencilLineIcon,
   late_rejected: CloudOffIcon,
   out_of_order: ClockAlertIcon,
+  skipped_step: SkipForwardIcon,
   cancellation_request: TriangleAlertIcon,
   cancellation_rejected: RotateCcwIcon,
   settlement_pending: TriangleAlertIcon,
@@ -74,7 +77,9 @@ function judul(e: StatusEvent): string {
     case "late_rejected":
       return `Laporan ${STATUS_LABEL[e.to]} ditolak — order sudah ditutup`
     case "out_of_order":
-      return `Laporan ${STATUS_LABEL[e.to]} ditolak — status sudah lebih maju`
+      return `Laporan ${STATUS_LABEL[e.to]} ditolak — status sudah pada tahap ini atau sesudahnya`
+    case "skipped_step":
+      return `Laporan ${STATUS_LABEL[e.to]} ditolak — ada tahap yang belum dilaporkan`
     default:
       return STATUS_LABEL[e.to]
   }

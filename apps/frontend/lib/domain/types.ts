@@ -22,14 +22,19 @@ export const PERSONA_ROLE: Record<Persona, Role> = {
   lapangan: "inspector",
 }
 
-/** Satu entri riwayat bisa berarti enam hal yang berbeda. Backend menyimpannya
+/** Satu entri riwayat bisa berarti beberapa hal yang berbeda. Backend menyimpannya
     sebagai kombinasi is_correction, accepted, dan rejection_reason; nilai ini
     adalah bentuk turunannya yang lebih mudah dibaca komponen. */
 export type EventKind =
   | "transition"
   | "correction"
   | "late_rejected"
+  /** Laporan yang menuntut tahap yang sudah terlewati atau sedang berlaku. */
   | "out_of_order"
+  /** Laporan yang menuntut tahap di depan, tetapi melewati tahap yang belum
+      pernah dilaporkan. Arahnya berlawanan dengan out_of_order, dan tindak
+      lanjutnya pun berbeda: ada yang harus dilaporkan, bukan diabaikan. */
+  | "skipped_step"
   | "cancellation_request"
   | "cancellation_rejected"
   | "settlement_pending"

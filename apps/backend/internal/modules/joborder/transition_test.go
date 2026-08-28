@@ -181,3 +181,32 @@ func TestMatriksKewenanganPembatalan(t *testing.T) {
 		})
 	}
 }
+
+// Penolakan punya dua arah yang berbeda, dan arah itu menentukan tindak lanjut
+// yang harus dilakukan inspektor — bukan sekadar kalimat yang lebih enak
+// dibaca. Melompat berarti ada tahap yang belum ia laporkan; mundur berarti
+// perangkatnya tertinggal dan tidak ada yang perlu ia perbaiki.
+func TestArahPenolakanTransisi(t *testing.T) {
+	cases := []struct {
+		nama string
+		from schema.JobStatus
+		to   schema.JobStatus
+		mau  string
+	}{
+		{"melompati tahap di depan", schema.StatusOnTheWay, schema.StatusCompleted, joborder.RejectionSkippedStep},
+		{"melompat dari penugasan langsung ke kendala", schema.StatusAssigned, schema.StatusFailed, joborder.RejectionSkippedStep},
+		{"mundur ke tahap sebelumnya", schema.StatusInProgress, schema.StatusOnSite, joborder.RejectionOutOfOrder},
+		{"mengulang tahap yang sedang berlaku", schema.StatusOnTheWay, schema.StatusOnTheWay, joborder.RejectionOutOfOrder},
+	}
+
+	for _, c := range cases {
+		t.Run(c.nama, func(t *testing.T) {
+			if joborder.CanTransition(c.from, c.to) {
+				t.Fatalf("%s → %s seharusnya bukan transisi yang sah", c.from, c.to)
+			}
+			if got := joborder.RejectionFor(c.from, c.to); got != c.mau {
+				t.Errorf("alasan = %q, mau %q", got, c.mau)
+			}
+		})
+	}
+}

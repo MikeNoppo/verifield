@@ -376,9 +376,10 @@ func (s *service) SubmitEvent(ctx context.Context, actor Actor, id string, input
 			event.RejectionReason = ptr(RejectionLateAfterFinal)
 		case !CanTransition(from, to):
 			// Keputusan B-06: pembaruan yang datang keluar urutan tidak boleh
-			// membuat status yang dilihat klien mundur.
+			// membuat status yang dilihat klien mundur, maupun melompatkannya
+			// melewati tahap yang tidak pernah dilaporkan.
 			event.Accepted = false
-			event.RejectionReason = ptr(RejectionOutOfOrder)
+			event.RejectionReason = ptr(RejectionFor(from, to))
 		}
 
 		if err := tx.InsertEvent(ctx, event); err != nil {
@@ -455,10 +456,27 @@ func submitMessage(event *schema.JobStatusEvent, duplicate bool) string {
 		return "Status berhasil diperbarui."
 	}
 
-	if event.RejectionReason != nil && *event.RejectionReason == RejectionLateAfterFinal {
-		return "Order sudah ditutup sebelum laporan Anda masuk, jadi statusnya tidak berubah. Laporan Anda tetap tercatat dan koordinator sudah diberi tahu untuk menindaklanjuti."
+	reason := ""
+	if event.RejectionReason != nil {
+		reason = *event.RejectionReason
 	}
-	return "Status order sudah lebih maju daripada laporan ini, jadi statusnya tidak diubah. Laporan Anda tetap tercatat pada riwayat."
+
+	switch reason {
+	case RejectionLateAfterFinal:
+		return "Order sudah ditutup sebelum laporan Anda masuk, jadi statusnya tidak berubah. Laporan Anda tetap tercatat dan koordinator sudah diberi tahu untuk menindaklanjuti."
+	case RejectionSkippedStep:
+		// Kalimatnya menyebut tahap yang sedang berlaku, bukan sekadar
+		// menyatakan penolakan: inspektor di lapangan perlu tahu apa yang harus
+		// ia tekan berikutnya, bukan tahu bahwa sistem tidak setuju.
+		if event.FromStatus != nil {
+			return fmt.Sprintf(
+				"Ada tahap yang belum dilaporkan, jadi status order belum berubah menjadi %s. Order masih tercatat %s — laporkan tahap sebelumnya lebih dulu. Laporan ini tetap tersimpan pada riwayat.",
+				StatusLabel(event.ToStatus), StatusLabel(*event.FromStatus),
+			)
+		}
+	}
+
+	return "Laporan ini tidak mengubah apa pun: status order sudah berada pada tahap ini atau sesudahnya. Laporan Anda tetap tercatat pada riwayat."
 }
 
 func (s *service) Cancel(ctx context.Context, actor Actor, id string, input dto.CancelJobOrderDTO) (*dto.CancelResult, error) {

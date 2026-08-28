@@ -39,6 +39,8 @@ function kindOf(d: StatusEventDTO): EventKind {
       return "late_rejected"
     case "out_of_order":
       return "out_of_order"
+    case "skipped_step":
+      return "skipped_step"
     case "pending_approval":
       return "cancellation_request"
     case "cancellation_rejected":

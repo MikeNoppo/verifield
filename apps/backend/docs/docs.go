@@ -1392,6 +1392,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "scheduled_start_at": {
+                    "description": "Kewajaran jadwal — belum lewat, tidak terlalu jauh ke depan, dan berada\npada jam kerja lapangan — diperiksa SchedulePolicy, bukan tag binding:\naturannya bergantung pada waktu sekarang dan pada zona operasi, yang\nkeduanya tidak dapat dinyatakan sebagai tag statis.",
                     "type": "string"
                 }
             }
@@ -1614,6 +1615,7 @@ const docTemplate = `{
                     "enum": [
                         "late_after_final",
                         "out_of_order",
+                        "skipped_step",
                         "pending_approval",
                         "cancellation_rejected",
                         "settlement_pending",

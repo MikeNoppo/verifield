@@ -37,14 +37,53 @@ func CanTransition(from, to schema.JobStatus) bool {
 	return false
 }
 
+// statusRank menempatkan tiap status pada urutan siklus hidupnya. Ketiga status
+// final berbagi peringkat yang sama: tidak ada yang "lebih maju" di antara
+// selesai, gagal, dan dibatalkan — ketiganya sama-sama akhir.
+//
+// Peringkat ini TIDAK ikut memutuskan boleh atau tidaknya sebuah transisi —
+// itu tetap milik forwardTransitions. Ia hanya menjelaskan arah sebuah
+// penolakan, dan arah itulah yang menentukan kalimat mana yang dibaca inspektor.
+var statusRank = map[schema.JobStatus]int{
+	schema.StatusRequested:  0,
+	schema.StatusAssigned:   1,
+	schema.StatusOnTheWay:   2,
+	schema.StatusOnSite:     3,
+	schema.StatusInProgress: 4,
+	schema.StatusCompleted:  5,
+	schema.StatusFailed:     5,
+	schema.StatusCancelled:  5,
+}
+
+// RejectionFor menjelaskan mengapa sebuah pembaruan tidak dapat diterapkan.
+// Hanya berarti bila CanTransition(from, to) sudah menjawab false.
+//
+// Dua arah, dua alasan, dua kalimat: laporan yang melompati tahap datang dari
+// inspektor yang justru bergerak lebih cepat daripada catatannya — ia perlu
+// tahu tahap mana yang belum terlapor. Laporan yang mundur atau mengulang
+// datang dari perangkat yang tertinggal, dan yang perlu ia tahu hanyalah bahwa
+// tidak ada yang perlu diperbaiki.
+func RejectionFor(from, to schema.JobStatus) string {
+	if statusRank[to] > statusRank[from] {
+		return RejectionSkippedStep
+	}
+	return RejectionOutOfOrder
+}
+
 // Alasan penolakan yang disimpan pada job_status_events.rejection_reason.
 const (
 	// RejectionLateAfterFinal dipakai saat pembaruan tiba setelah order
 	// berstatus final (keputusan B-07).
 	RejectionLateAfterFinal = "late_after_final"
-	// RejectionOutOfOrder dipakai saat pembaruan menuntut status yang bukan
-	// lanjutan sah dari status sekarang (keputusan B-06).
+	// RejectionOutOfOrder dipakai saat pembaruan menuntut status yang sudah
+	// terlewati atau sedang berlaku — laporan dari perangkat yang tertinggal
+	// (keputusan B-06).
 	RejectionOutOfOrder = "out_of_order"
+	// RejectionSkippedStep dipakai saat pembaruan menuntut status yang berada
+	// di depan, tetapi melewati tahap yang belum pernah dilaporkan. Berbeda
+	// arah dari out_of_order, dan karena itu berbeda tindak lanjutnya:
+	// inspektor perlu melaporkan tahap yang terlewat, bukan mengabaikannya.
+	RejectionSkippedStep = "skipped_step"
 	// RejectionPendingApproval menandai pembatalan yang diajukan saat pekerjaan
 	// sudah berjalan: tercatat di riwayat, tetapi belum mengubah status karena
 	// masih menunggu keputusan koordinator (keputusan B-05).
