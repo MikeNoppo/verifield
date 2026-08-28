@@ -116,12 +116,12 @@ export function CorrectionDialog({ order }: { order: JobOrder }) {
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium">Kembalikan ke</label>
                 <Select value={tujuan} onValueChange={(v) => setTujuan(String(v))}>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="w-full">
+                    <SelectValue>{STATUS_LABEL[tujuan as Status]}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {PIPELINE.filter((s) => s !== order.status).map((s) => (
-                      <SelectItem key={s} value={s}>
+                      <SelectItem key={s} value={s} label={STATUS_LABEL[s]}>
                         {STATUS_LABEL[s]}
                       </SelectItem>
                     ))}

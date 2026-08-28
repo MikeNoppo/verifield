@@ -140,12 +140,14 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
             <Field>
               <FieldLabel htmlFor="jenis">Jenis inspeksi</FieldLabel>
               <Select value={jenis} onValueChange={(v) => setJenis(String(v))}>
-                <SelectTrigger id="jenis">
-                  <SelectValue />
+                <SelectTrigger id="jenis" className="w-full">
+                  {/* Base UI mendaftarkan label lewat ref DOM, yang tidak ada saat
+                      SSR — tanpa children ini pemicu menampilkan uuid mentah. */}
+                  <SelectValue>{types.find((t) => t.id === jenis)?.name}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {types.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
+                    <SelectItem key={t.id} value={t.id} label={t.name}>
                       {t.name}
                     </SelectItem>
                   ))}

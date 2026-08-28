@@ -130,12 +130,18 @@ export function AssignDialog({
             </DialogHeader>
 
             <Select value={pilihan} onValueChange={(v) => setPilihan(String(v))}>
-              <SelectTrigger>
-                <SelectValue />
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {urut.find((i) => i.id === pilihan)?.name ?? "Pilih inspektor"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {urut.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>
+                  <SelectItem
+                    key={i.id}
+                    value={i.id}
+                    label={`${i.name} · ${i.activeJobs} penugasan berjalan`}
+                  >
                     {i.name} · {i.activeJobs} penugasan berjalan
                   </SelectItem>
                 ))}
