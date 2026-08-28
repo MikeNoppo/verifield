@@ -404,7 +404,8 @@ menerima aktor sebagai parameter — bukan menggalinya sendiri dari context.
 | Identitas di header/query, tanpa verifikasi | Siapa pun yang menebak UUID dapat bertindak sebagai pemiliknya | JWT + cookie sesi; cookie justru terkirim otomatis oleh EventSource |
 | Identitas stream ada di query string | Ikut tercatat di log akses dan riwayat peramban | Sama seperti di atas — cookie menghapus kebutuhan ini sepenuhnya |
 | Daftar order diambil `limit=100`, disaring di klien | Melewati 100 order aktif, saringan dan hitungan menjadi salah | Pindahkan agregasi ke query backend. Bergantung pada asumsi A-06 |
-| `docker compose` belum pernah dijalankan | Berkasnya ditulis dengan teliti tetapi belum terbukti | WSL belum terpasang di mesin pengembangan; lihat README |
+| Manifest Kubernetes dan pipeline CI belum pernah dijalankan | Ditulis dengan teliti tetapi belum terbukti pada cluster maupun runner sungguhan | `docker compose up -d --build` sudah diverifikasi menyalakan seluruh stack sampai sehat; sisanya menuntut cluster dan registry |
+| Invarian transaksional belum diuji otomatis | `FOR UPDATE`, idempotensi di bawah beban bersamaan, dan `NOTIFY` transaksional diverifikasi manual terhadap Postgres yang berjalan | Testcontainers di CI |
 | Antrean offline hanya di memori bila `localStorage` diblokir | Laporan hilang bila tab ditutup dalam kondisi itu | IndexedDB, atau Background Sync lewat service worker |
 | Belum ada pembatasan laju | Klien nakal bisa membuka banyak stream | Batas koneksi per aktor di reverse proxy |
 | Alert `late_update_rejected` belum bisa diselesaikan lewat UI | Koordinator melihat tandanya tetapi belum bisa menutupnya | Kolom `resolved_at` sudah ada; tinggal endpoint dan tombolnya |
