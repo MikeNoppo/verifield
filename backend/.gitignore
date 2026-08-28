@@ -1,0 +1,22 @@
+# Konfigurasi lokal
+.env
+.env.local
+*.local
+
+# Hasil build
+/bin/
+/tmp/
+verifield-be
+*.exe
+
+# Go
+*.test
+*.out
+coverage.*
+vendor/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
