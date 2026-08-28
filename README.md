@@ -56,7 +56,7 @@ Deliverable A ada di `docs/`. Urutan bacanya dari bisnis ke teknis:
 | Dokumen | Isi |
 |---|---|
 | [00-case-study.md](docs/00-case-study.md) | Soal aslinya, disimpan apa adanya sebagai rujukan |
-| [01-business-context.md](docs/01-business-context.md) | Lapisan bisnis: aktor, siklus status, keputusan B-01…B-10, asumsi A-01…A-08 |
+| [01-business-context.md](docs/01-business-context.md) | Lapisan bisnis: aktor, siklus status, keputusan B-01…B-12, asumsi A-01…A-08 |
 | [02-technical-design.md](docs/02-technical-design.md) | Lapisan teknis: arsitektur, data model, dan bagaimana tiap keputusan bisnis ditegakkan di kode |
 | **[03-deliverable-a.md](docs/03-deliverable-a.md)** | **Deliverable A** — ringkas, memuat sepuluh poin yang diminta soal. Mulai dari sini |
 | [04-panduan-uji.md](docs/04-panduan-uji.md) | Cara mencoba setiap alur dan membuktikan setiap keputusan |
@@ -144,6 +144,7 @@ dinilai lebih tinggi daripada dua yang setengah jadi.
 | Daftar order diambil `limit=100` lalu disaring di klien | Melewati ~100 order aktif, saringan dan hitungan menjadi salah | Agregasi pindah ke backend. Bergantung pada asumsi A-06 |
 | Antrean offline hanya di memori bila `localStorage` diblokir | Laporan hilang bila tab ditutup dalam kondisi itu | IndexedDB, atau Background Sync lewat service worker |
 | Belum ada pembatasan laju | Klien nakal bisa membuka banyak stream | Batas koneksi per aktor di reverse proxy |
+| Pemeriksaan jam kerja di formulir memakai zona peramban, sedangkan server memakai zona operasi | Klien yang perangkatnya berzona lain melihat pemilih yang mengizinkan jam yang kemudian ditolak server | Kirim batas jam kerja bersama daftar jenis inspeksi, atau hitung di formulir memakai zona yang sama. Bergantung pada asumsi A-04 |
 | Alert `late_update_rejected` belum bisa diselesaikan lewat UI | Koordinator melihat tandanya tetapi belum bisa menutupnya | Kolom `resolved_at` sudah ada; tinggal endpoint dan tombolnya |
 | Invarian transaksional belum diuji otomatis | Aturan bisnisnya diuji lewat fake repository, tetapi perilaku SQL-nya — `FOR UPDATE`, idempotensi di bawah beban bersamaan, `NOTIFY` transaksional — masih diverifikasi manual terhadap Postgres yang berjalan | Testcontainers di CI |
 

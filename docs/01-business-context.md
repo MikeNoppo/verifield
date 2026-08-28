@@ -434,6 +434,30 @@ dulu, dan keputusannya diambil sebelum pekerjaan telanjur selesai.
 
 ---
 
+**B-12 — Aturan jadwal ditegakkan di server, dan penolakan wewenang dibedakan dari penolakan keadaan**
+
+Permintaan inspeksi hanya diterima bila jadwalnya masuk akal: belum lewat, tidak lebih dari
+enam bulan ke depan, dimulai pada jam kerja lapangan, dan mencakup satu kunjungan — paling
+lama dua puluh empat jam.
+
+*Alasan:* pemilih tanggal di formulir hanya kenyamanan. Permintaan bisa datang dari tab yang
+sudah lama terbuka, dari perangkat lain, atau kelak dari integrasi yang tidak pernah melihat
+formulir sama sekali. Order dengan jadwal yang mustahil dieksekusi tidak berhenti menjadi
+masalah teknis: ia mengendap di papan koordinator, tidak pernah selesai, dan klien akhirnya
+menelepon — persis keadaan yang hendak dihapus sistem ini.
+
+*Konsekuensi:* jam kerja hanya berarti sesuatu pada zona waktu tempat inspektor bekerja,
+sehingga zona operasi menjadi konfigurasi (asumsi A-04), bukan nilai tetap di dalam kode.
+
+Pada bagian yang sama, dua sebab penolakan yang berbeda tidak lagi dijawab dengan kode yang
+sama. **Peran yang tidak pernah berwenang** — inspektor dan Customer Service — dijawab 403
+pada status apa pun; **keadaan yang kebetulan tidak mengizinkan** — order yang sudah final —
+dijawab 409. Wewenang dinilai lebih dulu daripada keadaan, sehingga inspektor mendengar
+alasan yang sama pada setiap order, bukan kalimat yang seolah menjanjikan bahwa pada order
+lain ia akan berhasil.
+
+---
+
 ## 11. Matriks Kewenangan Pembatalan
 
 | Status saat ini | Klien | Koordinator | Inspektor | Konsekuensi komersial |

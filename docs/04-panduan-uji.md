@@ -1,7 +1,7 @@
 # Verifield — Panduan Menguji Seluruh Alur
 
 Panduan ini menjalankan PoC dari awal sampai akhir: setiap alur bisnis, setiap
-keputusan B-01…B-11, dan jawaban atas pertanyaan desain wajib dapat dibuktikan
+keputusan B-01…B-12, dan jawaban atas pertanyaan desain wajib dapat dibuktikan
 lewat langkah-langkah di bawah. Nomor keputusan merujuk ke
 [01-business-context.md](01-business-context.md).
 

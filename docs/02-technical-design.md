@@ -1,7 +1,7 @@
 # Verifield — Dokumen Desain Teknis
 
 **Case Study 1: Real-Time Order & Job Tracking**
-Dokumen ini adalah lapisan teknis. Ia mengambil keputusan bisnis B-01…B-09 dari
+Dokumen ini adalah lapisan teknis. Ia mengambil keputusan bisnis B-01…B-12 dari
 [01-business-context.md](01-business-context.md) sebagai batasan, lalu
 menjelaskan bagaimana masing-masing ditegakkan di kode.
 
@@ -229,6 +229,19 @@ lengkapnya tetap tersedia lewat `GET /orders/{id}/events?after_seq=`.
 *Trade-off:* animasi perpindahan antar status tidak terlihat untuk perubahan yang
 terlewat. Itu diterima; yang dibutuhkan klien adalah keadaan, bukan rekaman.
 
+**Seluruh order yang berubah dimuat dalam satu kueri, terurut menurut `seq`.**
+Dua hal sekaligus, dan keduanya menyangkut jalur yang sama:
+
+- *Satu kueri.* Pemulihan tidak berjalan sendirian — ia berjalan serentak untuk
+  semua klien tepat sesudah rilis atau sesudah jaringan pulih. Satu kueri per
+  order pada jalur itu menempatkan beban terbesar pada saat sistem paling rapuh.
+  `FindCompactChangedSince` memuat id, order, dan kolom turunannya masing-masing
+  sekali, berapa pun jumlah order yang berubah.
+- *Terurut menurut `seq`.* Field `id` pada pesan SSE diisi `seq`, dan browser
+  mengirim balik nilai **terakhir** yang ia terima sebagai `Last-Event-ID`.
+  Mengurutkan menurut id order — yang UUID, dan karena itu tidak berhubungan
+  dengan urutan kejadian — membuat kursor klien mundur tanpa alasan.
+
 **Kursor juga dikirim klien pada koneksi pertama.** Browser hanya mengirim
 `Last-Event-ID` pada penyambungan **ulang**, tidak pada koneksi pertama. Tanpa
 `?last_event_id=`, pemulihan setelah halaman dimuat ulang tidak akan pernah
@@ -265,9 +278,26 @@ kekacauan:
 
 Status terkini ditentukan `seq`, bukan `occurred_at`. Empat pembaruan yang tiba
 sekaligus setelah sinyal pulih **tidak** membuat status mundur, karena tabel
-transisi hanya mengizinkan langkah maju. Pembaruan yang menuntut status mundur
-ditolak — tetapi tetap ditulis dengan `accepted = false` dan
-`rejection_reason = out_of_order`.
+transisi hanya mengizinkan langkah maju. Pembaruan yang tidak sah ditolak — tetapi
+tetap ditulis dengan `accepted = false`.
+
+**Arah penolakan dibedakan, karena tindak lanjutnya berbeda.** Satu tabel transisi
+menghasilkan dua situasi yang berlawanan:
+
+| Arah | `rejection_reason` | Artinya | Yang perlu dilakukan inspektor |
+|---|---|---|---|
+| Mundur atau mengulang | `out_of_order` | Perangkatnya tertinggal; server sudah lebih maju | Tidak ada. Laporannya tercatat, statusnya sudah benar |
+| Melompati tahap | `skipped_step` | Ada tahap yang belum pernah dilaporkan | Laporkan tahap sebelumnya lebih dulu |
+
+Menyamakan keduanya menghasilkan kalimat yang terbalik untuk salah satunya. Kasus
+kedua bukan teoretis: antrean perangkat mengeluarkan laporan yang ditolak server
+secara permanen, dan laporan berikutnya menjadi melompat. Kalimat penolakannya
+menyebut tahap yang sedang berlaku, sehingga inspektor tahu tombol mana yang harus
+ia tekan — bukan sekadar tahu bahwa sistem tidak setuju.
+
+Arah dibaca dari peringkat siklus hidup status (`RejectionFor` di
+`transition.go`). Peringkat itu tidak ikut memutuskan boleh atau tidaknya sebuah
+transisi; keputusan itu tetap milik `forwardTransitions` sendiri.
 
 Timeline yang dilihat klien diurutkan `occurred_at`, dengan `seq` sebagai pemecah
 seri agar urutannya stabil. Jadi klien melihat urutan yang benar (09.14, 09.20,
@@ -391,7 +421,36 @@ masalah awal muncul lagi.
 
 ---
 
-## 4. Autentikasi dan Wewenang
+## 4. Aturan yang Tidak Boleh Berhenti di Formulir
+
+Dua aturan yang tampak seperti urusan tampilan, tetapi tidak boleh hanya hidup di sana.
+
+**Jadwal (B-12).** `SchedulePolicy` di `schedule.go` menolak jadwal yang sudah lewat,
+lebih dari 180 hari ke depan, dimulai di luar jam kerja lapangan, atau mencakup rentang
+lebih dari 24 jam. Aturannya tidak dapat dinyatakan sebagai tag validasi statis: ia
+bergantung pada waktu sekarang dan pada zona operasi, sehingga hidup sebagai fungsi murni
+yang menerima keduanya sebagai parameter dan dapat diuji tanpa server maupun basis data.
+
+Zonanya datang dari `APP_TIMEZONE`, bukan dari offset yang dikirim klien: peramban selalu
+mengirim UTC, dan "jam kerja" hanya berarti sesuatu pada zona tempat inspektor benar-benar
+bekerja. Satu konsekuensi operasional yang mudah terlewat — image runtime wajib memuat
+`tzdata`; tanpa paket itu Go jatuh ke UTC dan seluruh aturan meleset tujuh jam.
+
+**Penolakan pembatalan.** `EvaluateCancel` memisahkan `CancelForbidden` (peran ini tidak
+pernah berwenang → 403) dari `CancelUnavailable` (wewenangnya ada, keadaannya yang tidak
+mengizinkan → 409). Wewenang dinilai lebih dulu daripada keadaan, sehingga peran yang
+tidak berwenang mendengar alasan yang sama pada status apa pun.
+
+Kenapa ini bukan sekadar kerapian: 403 berarti "jangan pernah tawarkan aksi ini kepada
+peran tersebut", sedangkan 409 berarti "muat ulang lalu nilai kembali". Konsumen yang
+hanya menerima satu kode harus membaca kalimatnya untuk membedakan — dan kalimat bukan
+kontrak. Matriks di frontend (`lib/domain/status.ts`) mengikuti urutan pembacaan yang
+sama, dan `cancelOffered` memusatkan keputusan "tombolnya ditawarkan atau tidak" di satu
+tempat.
+
+---
+
+## 5. Autentikasi dan Wewenang
 
 Autentikasi dinyatakan di luar cakupan. Yang **tidak** boleh ikut keluar cakupan
 adalah wewenangnya: siapa boleh melakukan apa tetap ditegakkan di server.
@@ -416,7 +475,7 @@ menerima aktor sebagai parameter — bukan menggalinya sendiri dari context.
 
 ---
 
-## 5. Keterbatasan yang Disadari
+## 6. Keterbatasan yang Disadari
 
 | Keterbatasan | Konsekuensi | Cara menutupnya |
 |---|---|---|
@@ -427,11 +486,12 @@ menerima aktor sebagai parameter — bukan menggalinya sendiri dari context.
 | Invarian transaksional belum diuji otomatis | `FOR UPDATE`, idempotensi di bawah beban bersamaan, dan `NOTIFY` transaksional diverifikasi manual terhadap Postgres yang berjalan | Testcontainers di CI |
 | Antrean offline hanya di memori bila `localStorage` diblokir | Laporan hilang bila tab ditutup dalam kondisi itu | IndexedDB, atau Background Sync lewat service worker |
 | Belum ada pembatasan laju | Klien nakal bisa membuka banyak stream | Batas koneksi per aktor di reverse proxy |
+| Pemeriksaan jam kerja di formulir memakai zona peramban, sedangkan server memakai zona operasi | Klien yang perangkatnya berzona lain melihat pemilih yang mengizinkan jam yang kemudian ditolak server | Kirim batas jam kerja bersama daftar jenis inspeksi, atau hitung di formulir memakai zona yang sama. Bergantung pada asumsi A-04 |
 | Alert `late_update_rejected` belum bisa diselesaikan lewat UI | Koordinator melihat tandanya tetapi belum bisa menutupnya | Kolom `resolved_at` sudah ada; tinggal endpoint dan tombolnya |
 
 ---
 
-## 6. Alternatif yang Dipertimbangkan dan Ditolak
+## 7. Alternatif yang Dipertimbangkan dan Ditolak
 
 **Redis pub/sub untuk fan-out.** Ditolak karena menambah satu komponen
 infrastruktur untuk masalah yang sudah bisa diselesaikan komponen yang ada.
@@ -462,7 +522,7 @@ status.
 
 ---
 
-## 7. Bila Diberi Dua Minggu — Tiga Hal Pertama
+## 8. Bila Diberi Dua Minggu — Tiga Hal Pertama
 
 **1. Autentikasi dan wewenang yang sungguhan.** Bukan karena ia dinilai, tetapi
 karena setiap keputusan lain sudah menganggapnya ada. Cookie sesi sekaligus

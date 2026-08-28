@@ -3,7 +3,7 @@
 **Technical Assignment — Fullstack Developer · Case Study 1: Real-Time Order & Job Tracking**
 
 Dokumen ini berdiri sendiri sebagai Deliverable A. Analisis lengkap dengan nomor keputusan
-(B-01…B-11, A-01…A-08) ada di [01-business-context.md](01-business-context.md); rincian
+(B-01…B-12, A-01…A-08) ada di [01-business-context.md](01-business-context.md); rincian
 teknis dan bukti implementasi ada di [02-technical-design.md](02-technical-design.md).
 
 ---
