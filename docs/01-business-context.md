@@ -237,9 +237,13 @@ KLIEN mengajukan pembatalan
               ├─ koordinator setuju ──► Cancelled
               ├─ koordinator tolak ───► kembali berjalan sebagai In Progress
               └─ inspektor menyelesaikan pekerjaan lebih dulu
-                    └──► permintaan gugur, status tetap Completed,
-                         koordinator diberi tanda untuk menyelesaikan
-                         aspek komersialnya (keputusan B-10)
+                    └──► status tetap Completed, tetapi permintaan TIDAK gugur:
+                         pertanyaannya berganti menjadi "siapa menanggung",
+                         dan tetap menunggu keputusan koordinator (B-10)
+                             │
+                             ├─ tagih penuh
+                             ├─ tagih sebagian
+                             └─ bebaskan biaya
 ```
 
 ### Alur inspektor kehilangan sinyal
@@ -383,28 +387,50 @@ Koordinator kedua menerima penolakan disertai penjelasan bahwa data telah beruba
 
 ---
 
-**B-10 — Permintaan pembatalan gugur bila pekerjaan mencapai status final lebih dulu**
+**B-10 — Bila pekerjaan selesai lebih dulu, permintaan pembatalan berubah menjadi keputusan penyelesaian**
 
 Selama permintaan pembatalan menunggu keputusan koordinator, pekerjaan di lapangan tetap
-berjalan. Inspektor bisa saja menyelesaikannya sebelum koordinator sempat memutuskan —
+berjalan (B-05). Inspektor bisa saja menyelesaikannya sebelum koordinator sempat memutuskan —
 terlebih bila inspektor sedang offline dan tidak mengetahui adanya permintaan tersebut.
 
-Ketika itu terjadi, permintaan pembatalan **gugur**. Status tidak berubah, dan koordinator
-tidak lagi dapat menyetujuinya.
+Ketika itu terjadi, **statusnya tetap `Completed` dan tidak dapat diubah lagi**, tetapi
+**permintaan klien tidak gugur.** Yang berubah adalah pertanyaan yang dihadapkan kepada
+koordinator: dari *"dibatalkan atau tidak"* menjadi *"pekerjaan terlanjur selesai, siapa
+menanggung"*. Permintaan itu tetap berada di antrean koordinator sampai dijawab, dengan tiga
+kemungkinan hasil: ditagih penuh, ditagih sebagian, atau biaya dibebaskan — masing-masing
+wajib disertai catatan.
 
-*Alasan:* menyetujui pembatalan atas pekerjaan yang sudah selesai berarti memindahkan order
-keluar dari status final, padahal `Completed`, `Failed`, dan `Cancelled` tidak memiliki
-transisi keluar (bagian 7). Membiarkannya berarti riwayat menyatakan pekerjaan selesai pada
-pukul 11.05 lalu dibatalkan pada pukul 11.20 — dan dokumen yang lahir dari riwayat itu
-menjadi tidak dapat dipertahankan bila dipersengketakan.
+*Alasan status tidak boleh berubah:* menyetujui pembatalan atas pekerjaan yang sudah selesai
+berarti memindahkan order keluar dari status final, padahal `Completed`, `Failed`, dan
+`Cancelled` tidak memiliki transisi keluar (bagian 7). Riwayat yang menyatakan pekerjaan
+selesai pukul 11.05 lalu dibatalkan pukul 11.20 tidak dapat dipertahankan bila dipersengketakan.
 
-Namun menggugurkannya secara diam-diam juga keliru, dengan alasan yang sama seperti B-07:
-ada dua fakta nyata yang bertabrakan — pekerjaan benar-benar dikerjakan, dan klien benar-benar
-meminta pembatalan. Karena itu penggugurannya dicatat pada riwayat, dan koordinator diberi
-tanda agar dapat menyelesaikan aspek komersialnya dengan klien.
+*Alasan permintaan tidak boleh gugur:* permintaan klien tidak cacat — ia masuk selagi
+pekerjaan masih berjalan, tepat waktu. Yang membuat pekerjaan tetap berjalan adalah keputusan
+perusahaan sendiri, yaitu B-05. Menyatakan permintaan itu gugur berarti perusahaan sepihak
+memenangkan dirinya atas konsekuensi keputusannya sendiri, dan klien akan menelepon CS —
+persis beban yang hendak dihilangkan sistem ini. Klien punya klaim yang sah, dan klaim itu
+harus dijawab manusia, bukan dihapus sistem.
+
+*Konsekuensi yang disengaja:* hasil penyelesaian disimpan sebagai nilai terbatas, bukan
+sekadar catatan bebas, supaya dapat dihitung. Berapa sering pekerjaan selesai mendahului
+keputusan, dan berapa banyak yang berakhir dibebaskan, adalah angka yang menentukan apakah
+B-05 sendiri perlu ditinjau ulang.
 
 *Kasus khusus:* apabila yang menutup order justru pembatalan oleh koordinator, permintaan
-klien tersebut **terpenuhi**, bukan gugur — klien menerima persis apa yang ia minta.
+klien tersebut **terpenuhi**, bukan menunggu penyelesaian — klien menerima persis apa yang
+ia minta.
+
+---
+
+**B-11 — Inspektor diberi tahu ketika klien mengajukan pembatalan, tetapi tidak dihentikan**
+
+*Alasan:* B-05 memutuskan pekerjaan tetap berjalan selama permintaan ditinjau, karena
+permintaannya bisa saja ditolak dan menghentikan inspektor berarti membuang waktu yang sudah
+terpakai. Tetapi berjalan terus **tanpa memberi tahu** inspektor membuat tabrakan pada B-10
+menjadi kejadian rutin, bukan langka. Memberi tahu tanpa memblokir mempertahankan alasan B-05
+sekaligus menurunkan frekuensinya: inspektor yang tahu akan menghubungi koordinator lebih
+dulu, dan keputusannya diambil sebelum pekerjaan telanjur selesai.
 
 ---
 
@@ -435,7 +461,8 @@ klien tersebut **terpenuhi**, bukan gugur — klien menerima persis apa yang ia 
 | Klien membuka sistem di dua tab sekaligus | Kedua tab menampilkan data berbeda, klien tidak tahu mana yang benar | Kedua tab menerima pembaruan yang sama, dan keduanya menampilkan indikator koneksi | F-01 |
 | Order tidak menunjukkan pembaruan selama delapan jam pada hari kerja | Kemungkinan inspektor lupa memperbarui, dan klien akan menelepon | Koordinator diberi tanda agar dapat menindaklanjuti sebelum klien bertanya | Bagian 4 |
 | Inspektor salah menekan "Selesai" padahal baru tiba | Data laporan salah, klien menerima informasi keliru | Koordinator mengoreksi dengan alasan, tercatat sebagai entri baru | B-06, F-06 |
-| Klien mengajukan pembatalan saat `In Progress`, inspektor menyelesaikan pekerjaan sebelum koordinator memutuskan | Menyetujui pembatalan akan membuka kembali status final, dan riwayat menjadi tidak dapat dipertahankan | Permintaan gugur, status tetap `Completed`, penggugurannya tercatat, koordinator diberi tanda | B-10 |
+| Klien mengajukan pembatalan saat `In Progress`, inspektor menyelesaikan pekerjaan sebelum koordinator memutuskan | Status final terbuka kembali bila pembatalan disetujui; sebaliknya, menggugurkan permintaan begitu saja memindahkan seluruh kerugian ke klien tanpa proses | Status tetap `Completed`; permintaan berpindah menunggu keputusan penyelesaian komersial dan tetap di antrean koordinator sampai dijawab | B-10 |
+| Inspektor bekerja tanpa tahu klien sedang mengajukan pembatalan | Tabrakan di atas menjadi kejadian rutin, bukan langka | Layar lapangan menampilkan tanda bahwa pembatalan sedang ditinjau — memberi tahu tanpa memblokir | B-11 |
 | Jam pada perangkat inspektor tidak akurat | Waktu kejadian keliru dan merusak urutan riwayat | Waktu kejadian di luar batas kewajaran ditolak, waktu penerimaan dipakai sebagai cadangan | B-02 |
 
 ---

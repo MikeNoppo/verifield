@@ -139,10 +139,29 @@ hilang dengan sendirinya. Pemeriksaan pada jalur keputusan tetap ada sebagai lap
 kedua, karena status final tidak boleh dibuka kembali oleh jalur mana pun, bukan hanya
 oleh jalur yang kebetulan sudah dijaga (keputusan B-10).
 
-Penggugurannya dicatat sebagai entri riwayat ber-`accepted = false` dengan
-`rejection_reason = cancellation_obsolete`, disertai alert bagi koordinator — alasannya
-sama dengan B-07: ada pekerjaan nyata dan permintaan nyata yang bertabrakan, dan
-menelan salah satunya tanpa penjelasan akan mengembalikan penyelesaiannya ke telepon.
+Yang **tidak** ikut dikunci adalah permintaan klien. Menutupnya sekalian akan menukar satu
+cacat dengan cacat lain: statusnya benar, tetapi koordinator kehilangan seluruh tindakan
+padahal masih ada pertanyaan komersial yang belum dijawab siapa pun. Karena itu permintaan
+berpindah ke `pending_settlement` dan tetap berada di antrean — saringan `attention=pembatalan`
+serta kolom turunan `cancellation_requested` sama-sama membaca kedua status terbuka, sehingga
+ia muncul di layar koordinator tanpa mekanisme tambahan.
+
+Perpindahan dan keputusannya masing-masing dicatat sebagai entri riwayat ber-`accepted = false`
+(`settlement_pending`, lalu `settlement_decided`) — sama seperti penolakan pembatalan yang
+sudah ada. Hasilnya disimpan sebagai nilai terbatas pada `settlement_outcome`, terpisah dari
+catatan bebas, supaya dapat dihitung untuk laporan.
+
+**Yang sengaja tidak dipakai: alert.** Versi pertama perbaikan ini memunculkan alert bagi
+koordinator. Begitu permintaannya sendiri tetap menjadi tugas di antrean, alert itu menjadi
+mekanisme kedua untuk satu keadaan yang sama — dan dua mekanisme berarti dua tempat yang bisa
+tidak sinkron. Alert kini hanya dipakai untuk keadaan yang memang tidak punya tugas mewakilinya,
+yaitu laporan terlambat yang ditolak (B-07).
+
+**Konsekuensi bagi antarmuka.** Riwayat bersifat menambah, sehingga `rejection_reason` yang
+sudah dipensiunkan tetap hidup di baris lama selamanya. Frontend karena itu tidak boleh
+menjatuhkan alasan yang tidak dikenalnya ke penggambaran transisi biasa — entri yang tidak
+diterapkan akan tampil seolah status berpindah, justru kebalikan dari yang terjadi. Nilai yang
+tidak dikenal digambar sebagai entri ditolak yang generik.
 
 ---
 
