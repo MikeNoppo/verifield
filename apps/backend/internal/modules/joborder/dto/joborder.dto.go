@@ -66,6 +66,17 @@ type DecideCancellationDTO struct {
 	Note     *string `json:"note"     binding:"omitempty,max=500"`
 }
 
+// SettleCancellationDTO adalah keputusan penyelesaian komersial ketika
+// pekerjaan terlanjur selesai mendahului keputusan pembatalan (keputusan B-10).
+//
+// Note wajib dengan alasan yang sama seperti koreksi: keputusan komersial tanpa
+// catatan tidak dapat dipertanggungjawabkan ketika kemudian dipersoalkan, dan
+// CS yang menerima telepon klien membaca catatan inilah.
+type SettleCancellationDTO struct {
+	Outcome string `json:"outcome" binding:"required,oneof=billed_full billed_partial waived" example:"billed_partial"`
+	Note    string `json:"note"    binding:"required,min=3,max=500"                          example:"Disepakati menagih separuh biaya kunjungan"`
+}
+
 // CorrectStatusDTO adalah koreksi status oleh koordinator, termasuk mundur ke
 // tahap sebelumnya.
 //
@@ -135,11 +146,14 @@ type JobOrderResponse struct {
 	CancellationRequested bool `json:"cancellation_requested"`
 	HasOpenAlert          bool `json:"has_open_alert"`
 
-	// Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang
-	// harus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut
-	// kompensasi inspektor, permintaan pembatalan yang gugur menyangkut
-	// penyelesaian komersial dengan klien.
-	OpenAlertType *string `json:"open_alert_type" enums:"late_update_rejected,cancellation_obsolete"`
+	// Jenis alert yang masih terbuka, karena kalimat yang harus dibaca
+	// koordinator berbeda per jenis.
+	//
+	// NOTE: pekerjaan yang selesai mendahului keputusan pembatalan TIDAK
+	// memakai alert. Permintaannya sendiri yang berpindah menunggu penyelesaian
+	// dan tetap berada di antrean koordinator (B-10) — satu keadaan cukup satu
+	// mekanisme.
+	OpenAlertType *string `json:"open_alert_type" enums:"late_update_rejected"`
 
 	// Tahap terjauh yang sempat dicapai sebelum order berakhir. Untuk order yang
 	// masih berjalan nilainya sama dengan current_status; untuk yang dibatalkan
@@ -252,4 +266,9 @@ type PendingCancellation struct {
 	Reason          string    `json:"reason"`
 	RequestedByName string    `json:"requested_by_name"`
 	CreatedAt       time.Time `json:"created_at"`
+
+	// Menentukan pertanyaan yang dihadapkan kepada koordinator: pembatalannya
+	// sendiri, atau penyelesaian komersial ketika pekerjaan sudah terlanjur
+	// selesai (keputusan B-10).
+	Status string `json:"status" enums:"pending,pending_settlement" example:"pending"`
 }

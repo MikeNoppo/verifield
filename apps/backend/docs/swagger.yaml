@@ -279,13 +279,15 @@ definitions:
         type: string
       open_alert_type:
         description: |-
-          Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang
-          harus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut
-          kompensasi inspektor, permintaan pembatalan yang gugur menyangkut
-          penyelesaian komersial dengan klien.
+          Jenis alert yang masih terbuka, karena kalimat yang harus dibaca
+          koordinator berbeda per jenis.
+
+          NOTE: pekerjaan yang selesai mendahului keputusan pembatalan TIDAK
+          memakai alert. Permintaannya sendiri yang berpindah menunggu penyelesaian
+          dan tetap berada di antrean koordinator (B-10) — satu keadaan cukup satu
+          mekanisme.
         enum:
         - late_update_rejected
-        - cancellation_obsolete
         type: string
       pending_cancellation:
         allOf:
@@ -376,7 +378,8 @@ definitions:
         - out_of_order
         - pending_approval
         - cancellation_rejected
-        - cancellation_obsolete
+        - settlement_pending
+        - settlement_decided
         example: late_after_final
         type: string
       seq:
@@ -405,6 +408,34 @@ definitions:
         type: string
       requested_by_name:
         type: string
+      status:
+        description: |-
+          Menentukan pertanyaan yang dihadapkan kepada koordinator: pembatalannya
+          sendiri, atau penyelesaian komersial ketika pekerjaan sudah terlanjur
+          selesai (keputusan B-10).
+        enum:
+        - pending
+        - pending_settlement
+        example: pending
+        type: string
+    type: object
+  verifield-be_internal_modules_joborder_dto.SettleCancellationDTO:
+    properties:
+      note:
+        example: Disepakati menagih separuh biaya kunjungan
+        maxLength: 500
+        minLength: 3
+        type: string
+      outcome:
+        enum:
+        - billed_full
+        - billed_partial
+        - waived
+        example: billed_partial
+        type: string
+    required:
+    - note
+    - outcome
     type: object
   verifield-be_internal_modules_joborder_dto.SubmitStatusEventDTO:
     properties:
@@ -871,6 +902,50 @@ paths:
                   $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
               type: object
       summary: Putuskan permintaan pembatalan
+      tags:
+      - job-orders
+  /orders/{id}/cancellations/{requestId}/settle:
+    post:
+      consumes:
+      - application/json
+      description: Dipakai ketika pekerjaan terlanjur selesai mendahului keputusan
+        pembatalan. Status order tidak berubah; yang dicatat adalah siapa menanggung
+        biayanya (keputusan B-10).
+      parameters:
+      - description: Id pengguna yang bertindak
+        in: header
+        name: X-Actor-Id
+        required: true
+        type: string
+      - description: Job order ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cancellation request ID (UUID)
+        in: path
+        name: requestId
+        required: true
+        type: string
+      - description: Hasil penyelesaian beserta catatannya
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.SettleCancellationDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+            - properties:
+                data:
+                  $ref: '#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse'
+              type: object
+      summary: Putuskan penyelesaian komersial
       tags:
       - job-orders
   /orders/{id}/corrections:

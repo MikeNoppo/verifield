@@ -541,6 +541,73 @@
                 }
             }
         },
+        "/orders/{id}/cancellations/{requestId}/settle": {
+            "post": {
+                "description": "Dipakai ketika pekerjaan terlanjur selesai mendahului keputusan pembatalan. Status order tidak berubah; yang dicatat adalah siapa menanggung biayanya (keputusan B-10).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "job-orders"
+                ],
+                "summary": "Putuskan penyelesaian komersial",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Id pengguna yang bertindak",
+                        "name": "X-Actor-Id",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Job order ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cancellation request ID (UUID)",
+                        "name": "requestId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Hasil penyelesaian beserta catatannya",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/verifield-be_internal_modules_joborder_dto.SettleCancellationDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/verifield-be_internal_common_response.Envelope"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/verifield-be_internal_modules_joborder_dto.JobOrderResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/orders/{id}/corrections": {
             "post": {
                 "description": "Boleh mundur ke tahap sebelumnya, wajib beralasan, dan tercatat sebagai entri baru — riwayat tidak pernah ditimpa (keputusan B-06).",
@@ -1428,11 +1495,10 @@
                     "type": "string"
                 },
                 "open_alert_type": {
-                    "description": "Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang\nharus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut\nkompensasi inspektor, permintaan pembatalan yang gugur menyangkut\npenyelesaian komersial dengan klien.",
+                    "description": "Jenis alert yang masih terbuka, karena kalimat yang harus dibaca\nkoordinator berbeda per jenis.\n\nNOTE: pekerjaan yang selesai mendahului keputusan pembatalan TIDAK\nmemakai alert. Permintaannya sendiri yang berpindah menunggu penyelesaian\ndan tetap berada di antrean koordinator (B-10) — satu keadaan cukup satu\nmekanisme.",
                     "type": "string",
                     "enum": [
-                        "late_update_rejected",
-                        "cancellation_obsolete"
+                        "late_update_rejected"
                     ]
                 },
                 "pending_cancellation": {
@@ -1543,7 +1609,8 @@
                         "out_of_order",
                         "pending_approval",
                         "cancellation_rejected",
-                        "cancellation_obsolete"
+                        "settlement_pending",
+                        "settlement_decided"
                     ],
                     "example": "late_after_final"
                 },
@@ -1581,6 +1648,39 @@
                 },
                 "requested_by_name": {
                     "type": "string"
+                },
+                "status": {
+                    "description": "Menentukan pertanyaan yang dihadapkan kepada koordinator: pembatalannya\nsendiri, atau penyelesaian komersial ketika pekerjaan sudah terlanjur\nselesai (keputusan B-10).",
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "pending_settlement"
+                    ],
+                    "example": "pending"
+                }
+            }
+        },
+        "verifield-be_internal_modules_joborder_dto.SettleCancellationDTO": {
+            "type": "object",
+            "required": [
+                "note",
+                "outcome"
+            ],
+            "properties": {
+                "note": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "minLength": 3,
+                    "example": "Disepakati menagih separuh biaya kunjungan"
+                },
+                "outcome": {
+                    "type": "string",
+                    "enum": [
+                        "billed_full",
+                        "billed_partial",
+                        "waived"
+                    ],
+                    "example": "billed_partial"
                 }
             }
         },

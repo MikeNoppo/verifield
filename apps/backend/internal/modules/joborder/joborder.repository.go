@@ -158,8 +158,8 @@ func applyFilters(tx *gorm.DB, query dto.ListQuery) *gorm.DB {
 		tx = tx.Where("current_status = ?", schema.StatusRequested)
 	case "pembatalan":
 		tx = tx.Where(
-			"EXISTS (SELECT 1 FROM cancellation_requests c WHERE c.job_order_id = job_orders.id AND c.status = ?)",
-			schema.CancellationPending,
+			"EXISTS (SELECT 1 FROM cancellation_requests c WHERE c.job_order_id = job_orders.id AND c.status IN ?)",
+			openCancellationStatuses(),
 		)
 	case "basi":
 		tx = tx.Where(
@@ -173,6 +173,16 @@ func applyFilters(tx *gorm.DB, query dto.ListQuery) *gorm.DB {
 	}
 
 	return tx
+}
+
+// openCancellationStatuses adalah permintaan yang masih menuntut keputusan
+// koordinator. Keduanya masuk antrean yang sama karena bagi koordinator sama
+// saja: ada yang harus diputuskan (keputusan B-10).
+func openCancellationStatuses() []schema.CancellationStatus {
+	return []schema.CancellationStatus{
+		schema.CancellationPending,
+		schema.CancellationPendingSettlement,
+	}
 }
 
 func finalStatuses() []schema.JobStatus {
@@ -214,7 +224,7 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 		       COALESCE((SELECT MAX(e.seq) FROM job_status_events e
 		                  WHERE e.job_order_id = jo.id), 0) AS seq,
 		       EXISTS (SELECT 1 FROM cancellation_requests c
-		                WHERE c.job_order_id = jo.id AND c.status = ?) AS cancellation_requested,
+		                WHERE c.job_order_id = jo.id AND c.status IN ?) AS cancellation_requested,
 		       EXISTS (SELECT 1 FROM job_order_alerts a
 		                WHERE a.job_order_id = jo.id AND a.resolved_at IS NULL) AS has_open_alert,
 		       (SELECT a.type FROM job_order_alerts a
@@ -226,7 +236,7 @@ func (r *gormRepository) derivedFor(ctx context.Context, ids []uuid.UUID) (map[u
 		         ORDER BY e.seq DESC LIMIT 1) AS exit_status
 		  FROM job_orders jo
 		 WHERE jo.id IN ?
-	`, schema.CancellationPending, finalStatuses(), ids).Scan(&rows).Error
+	`, openCancellationStatuses(), finalStatuses(), ids).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +314,7 @@ func derivedForOne(r *gormRepository, ctx context.Context, id uuid.UUID) derived
 	var request schema.CancellationRequest
 	err = r.db.WithContext(ctx).
 		Preload("RequestedBy").
-		Where("job_order_id = ? AND status = ?", id, schema.CancellationPending).
+		Where("job_order_id = ? AND status IN ?", id, openCancellationStatuses()).
 		First(&request).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -317,6 +327,7 @@ func derivedForOne(r *gormRepository, ctx context.Context, id uuid.UUID) derived
 		ID:        request.ID.String(),
 		Reason:    request.Reason,
 		CreatedAt: request.CreatedAt,
+		Status:    string(request.Status),
 	}
 	if request.RequestedBy != nil {
 		pending.RequestedByName = request.RequestedBy.Name

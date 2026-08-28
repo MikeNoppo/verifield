@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CircleCheckIcon, PencilLineIcon, TriangleAlertIcon } from "lucide-react"
+import { CircleCheckIcon, HandshakeIcon, PencilLineIcon, TriangleAlertIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -25,11 +25,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Spinner } from "@/components/ui/spinner"
 import { useActor } from "@/components/verifield/actor-provider"
 import { ApiError } from "@/lib/api/client"
-import { correctStatus, decideCancellation } from "@/lib/api/orders"
+import { correctStatus, decideCancellation, settleCancellation } from "@/lib/api/orders"
 import { useApplyResult } from "@/lib/live/hooks"
 import { PIPELINE, STATUS_LABEL } from "@/lib/domain/status"
-import type { JobOrder, PendingCancellation, Status } from "@/lib/domain/types"
+import type {
+  JobOrder,
+  PendingCancellation,
+  SettlementOutcome,
+  Status,
+} from "@/lib/domain/types"
 import { tanggalLengkap } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 /** Koreksi wajib beralasan dan tercatat sebagai entri baru, bukan menghapus
     entri lama. Tanpa jalur resmi ini koordinator akan mengubah data langsung
@@ -167,9 +173,152 @@ export function CorrectionDialog({ order }: { order: JobOrder }) {
   )
 }
 
+const HASIL: { value: SettlementOutcome; label: string; jelas: string }[] = [
+  {
+    value: "billed_full",
+    label: "Tagih penuh",
+    jelas: "Pekerjaan terkirim utuh sebelum pembatalan sempat diproses.",
+  },
+  {
+    value: "billed_partial",
+    label: "Tagih sebagian",
+    jelas: "Kompromi komersial — sebagian biaya ditanggung klien.",
+  },
+  {
+    value: "waived",
+    label: "Bebaskan biaya",
+    jelas: "Permintaan klien masuk cukup awal; biaya tidak ditagihkan.",
+  },
+]
+
+/** Pekerjaan terlanjur selesai mendahului keputusan pembatalan (B-10).
+    Statusnya sudah final dan tidak diutak-atik di sini — yang dijawab adalah
+    pertanyaan komersial yang tertinggal, dan jawabannya masuk riwayat supaya
+    klien serta CS membaca hal yang sama. */
+function SettlementReview({
+  order,
+  request,
+}: {
+  order: JobOrder
+  request: PendingCancellation
+}) {
+  const actor = useActor()
+  const terapkan = useApplyResult()
+
+  const [hasil, setHasil] = React.useState<SettlementOutcome | null>(null)
+  const [catatan, setCatatan] = React.useState("")
+  const [kirim, setKirim] = React.useState(false)
+  const [galat, setGalat] = React.useState<string | null>(null)
+
+  async function simpan() {
+    if (!hasil) return
+    setKirim(true)
+    setGalat(null)
+    try {
+      terapkan(await settleCancellation(actor.id, order.id, request.id, hasil, catatan.trim()))
+    } catch (error) {
+      setGalat(
+        error instanceof ApiError
+          ? error.message
+          : "Keputusan tidak dapat dikirim. Periksa koneksi Anda lalu coba lagi.",
+      )
+    } finally {
+      setKirim(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-attention/30 bg-attention/6 p-4">
+      <div className="flex flex-col gap-1">
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <HandshakeIcon className="size-4 text-attention" />
+          Pekerjaan selesai sebelum pembatalan diputuskan
+        </span>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Status {order.ref} tidak dapat diubah lagi — pekerjaannya memang dikerjakan. Yang
+          belum terjawab adalah biayanya. Klien mengajukan pembatalan selagi pekerjaan masih
+          berjalan, dan yang membuat pekerjaan tetap jalan adalah aturan kita sendiri.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-background px-3 py-2">
+        <p className="text-xs leading-relaxed">{request.reason}</p>
+        <p className="tabular mt-1.5 text-[11px] text-muted-foreground">
+          Diajukan {request.requestedByName} · {tanggalLengkap(request.createdAt)}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium">Penyelesaian</span>
+        <div className="flex flex-col gap-1.5">
+          {HASIL.map((h) => (
+            <button
+              key={h.value}
+              type="button"
+              onClick={() => setHasil(h.value)}
+              className={cn(
+                "flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
+                hasil === h.value
+                  ? "border-attention bg-attention/10"
+                  : "border-border bg-background hover:bg-muted/50",
+              )}
+            >
+              <span className="text-xs font-medium">{h.label}</span>
+              <span className="text-[11px] leading-relaxed text-muted-foreground">{h.jelas}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="catatan-penyelesaian" className="text-xs font-medium">
+          Catatan <span className="text-destructive">*</span>
+        </label>
+        <Textarea
+          id="catatan-penyelesaian"
+          rows={2}
+          value={catatan}
+          onChange={(e) => setCatatan(e.target.value)}
+          placeholder="Contoh: disepakati lewat telepon dengan Ibu Dewi, ditagih separuh biaya kunjungan."
+          className="text-sm"
+        />
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Catatan ini yang dibaca klien dan CS bila kemudian dipersoalkan.
+        </p>
+      </div>
+
+      {galat ? (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs leading-relaxed">
+          {galat}
+        </p>
+      ) : null}
+
+      <div>
+        <Button size="sm" disabled={kirim || !hasil || catatan.trim().length < 8} onClick={simpan}>
+          {kirim ? <Spinner /> : null}
+          Catat Penyelesaian
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 /** Permintaan pembatalan yang masuk saat pekerjaan sudah berjalan. Koordinator
     memutuskan setelah aspek komersialnya jelas (B-05). */
 export function CancellationReview({
+  order,
+  request,
+}: {
+  order: JobOrder
+  request: PendingCancellation
+}) {
+  if (request.status === "pending_settlement") {
+    return <SettlementReview order={order} request={request} />
+  }
+  return <PembatalanReview order={order} request={request} />
+}
+
+function PembatalanReview({
   order,
   request,
 }: {

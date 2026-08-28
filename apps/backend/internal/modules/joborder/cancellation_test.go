@@ -3,6 +3,7 @@ package joborder_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -184,9 +185,10 @@ func statusHTTP(t *testing.T, err error) int {
 
 // Keputusan B-10. Inspektor yang sedang offline tidak tahu klien mengajukan
 // pembatalan, dan tetap menyelesaikan pekerjaannya. Permintaan itu tidak boleh
-// tetap terbuka: menyetujuinya kemudian akan memindahkan order keluar dari
-// status final.
-func TestPermintaanPembatalanGugurSaatPekerjaanSelesai(t *testing.T) {
+// tetap dapat disetujui — itu akan memindahkan order keluar dari status final —
+// tetapi juga tidak boleh dinyatakan selesai, karena pertanyaan komersialnya
+// belum dijawab siapa pun.
+func TestPermintaanPembatalanMenungguPenyelesaianSaatPekerjaanSelesai(t *testing.T) {
 	p := siapkan(t, schema.StatusInProgress)
 
 	_, err := p.svc.SubmitEvent(context.Background(), p.inspektor, p.order.ID.String(),
@@ -198,29 +200,92 @@ func TestPermintaanPembatalanGugurSaatPekerjaanSelesai(t *testing.T) {
 	if p.order.CurrentStatus != schema.StatusCompleted {
 		t.Errorf("status = %s, ingin completed", p.order.CurrentStatus)
 	}
-	if p.request.Status != schema.CancellationObsolete {
-		t.Errorf("permintaan pembatalan = %s, ingin obsolete", p.request.Status)
+	if p.request.Status != schema.CancellationPendingSettlement {
+		t.Errorf("permintaan pembatalan = %s, ingin pending_settlement", p.request.Status)
+	}
+	// Belum ada yang memutuskan apa pun; yang berubah hanya pertanyaannya.
+	if p.request.DecidedAt != nil || p.request.DecidedByID != nil {
+		t.Error("permintaan belum diputuskan, jadi tidak boleh punya pemutus")
 	}
 
-	penutup := p.eventTerakhir(t)
-	if penutup.Accepted {
-		t.Error("entri penutup tidak boleh ikut mengubah status")
+	entri := p.eventTerakhir(t)
+	if entri.Accepted {
+		t.Error("entri ini tidak boleh ikut mengubah status")
 	}
-	if penutup.RejectionReason == nil || *penutup.RejectionReason != joborder.RejectionCancellationObsolete {
-		t.Errorf("alasan penolakan = %v, ingin cancellation_obsolete", penutup.RejectionReason)
+	if entri.RejectionReason == nil || *entri.RejectionReason != joborder.RejectionSettlementPending {
+		t.Errorf("alasan = %v, ingin settlement_pending", entri.RejectionReason)
 	}
 
-	// Ada pekerjaan nyata yang sudah dikerjakan, dan klien terlanjur meminta
-	// pembatalan. Keduanya nyata, dan penyelesaian komersialnya tidak boleh
-	// hilang diam-diam (keputusan B-07).
-	if len(p.repo.alerts) != 1 || p.repo.alerts[0].Type != schema.AlertCancellationObsolete {
-		t.Fatalf("koordinator seharusnya diberi tanda, dapat %+v", p.repo.alerts)
+	// Permintaan yang menunggu penyelesaian sudah menjadi tugas di antrean
+	// koordinator. Menambah alert berarti dua mekanisme untuk satu keadaan.
+	if len(p.repo.alerts) != 0 {
+		t.Errorf("tidak perlu alert terpisah, dapat %d", len(p.repo.alerts))
 	}
 
 	// Kursor real-time harus menunjuk entri terakhir, bukan entri transisinya —
-	// kalau tidak, layar koordinator tidak pernah menerima penutupan ini.
-	if p.repo.notified != penutup.Seq {
-		t.Errorf("seq yang disiarkan = %d, ingin %d", p.repo.notified, penutup.Seq)
+	// kalau tidak, layar koordinator tidak pernah menerima perubahan ini.
+	if p.repo.notified != entri.Seq {
+		t.Errorf("seq yang disiarkan = %d, ingin %d", p.repo.notified, entri.Seq)
+	}
+}
+
+// Inti dari keputusan B-10: koordinator tetap punya tindakan. Yang berubah
+// bukan haknya, melainkan pertanyaan yang dihadapkan kepadanya.
+func TestPenyelesaianKomersialDicatatKoordinator(t *testing.T) {
+	p := siapkan(t, schema.StatusInProgress)
+
+	if _, err := p.svc.SubmitEvent(context.Background(), p.inspektor, p.order.ID.String(),
+		dto.SubmitStatusEventDTO{ToStatus: "completed", ClientEventID: "penanda-perangkat-1"}); err != nil {
+		t.Fatalf("laporan selesai seharusnya diterima: %v", err)
+	}
+
+	_, err := p.svc.SettleCancellation(context.Background(), p.koordinator,
+		p.order.ID.String(), p.request.ID.String(),
+		dto.SettleCancellationDTO{Outcome: "billed_partial", Note: "Disepakati menagih separuh biaya kunjungan"})
+	if err != nil {
+		t.Fatalf("koordinator seharusnya dapat memutuskan penyelesaian: %v", err)
+	}
+
+	if p.request.Status != schema.CancellationSettled {
+		t.Errorf("permintaan = %s, ingin settled", p.request.Status)
+	}
+	if p.request.SettlementOutcome == nil || *p.request.SettlementOutcome != schema.SettlementBilledPartial {
+		t.Errorf("hasil = %v, ingin billed_partial", p.request.SettlementOutcome)
+	}
+	if p.request.DecidedByID == nil || *p.request.DecidedByID != p.koordinator.ID {
+		t.Error("pemutus penyelesaian tidak tercatat")
+	}
+
+	// Pekerjaannya memang dikerjakan; keputusan komersial tidak mengubah itu.
+	if p.order.CurrentStatus != schema.StatusCompleted {
+		t.Errorf("status berubah menjadi %s", p.order.CurrentStatus)
+	}
+
+	entri := p.eventTerakhir(t)
+	if entri.RejectionReason == nil || *entri.RejectionReason != joborder.RejectionSettlementDecided {
+		t.Errorf("alasan = %v, ingin settlement_decided", entri.RejectionReason)
+	}
+	if entri.Reason == nil || !strings.Contains(*entri.Reason, "Ditagih sebagian") {
+		t.Errorf("riwayat harus memuat hasilnya, dapat %v", entri.Reason)
+	}
+}
+
+// Selama pekerjaan masih berjalan, yang berlaku adalah keputusan pembatalan —
+// bukan penyelesaian. Dua jalur ini tidak boleh saling menggantikan.
+func TestPenyelesaianDitolakSelamaPekerjaanMasihBerjalan(t *testing.T) {
+	p := siapkan(t, schema.StatusInProgress)
+
+	_, err := p.svc.SettleCancellation(context.Background(), p.koordinator,
+		p.order.ID.String(), p.request.ID.String(),
+		dto.SettleCancellationDTO{Outcome: "waived", Note: "Coba menyelesaikan terlalu dini"})
+	if err == nil {
+		t.Fatal("penyelesaian atas permintaan yang masih menunggu keputusan seharusnya ditolak")
+	}
+	if got := statusHTTP(t, err); got != http.StatusConflict {
+		t.Errorf("status = %d, ingin %d", got, http.StatusConflict)
+	}
+	if p.request.Status != schema.CancellationPending {
+		t.Errorf("permintaan berubah menjadi %s", p.request.Status)
 	}
 }
 

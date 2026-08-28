@@ -52,10 +52,12 @@ const (
 	// RejectionCancellationRejected menandai permintaan pembatalan yang ditolak
 	// koordinator, sehingga pekerjaan berlanjut.
 	RejectionCancellationRejected = "cancellation_rejected"
-	// RejectionCancellationObsolete menandai permintaan pembatalan yang gugur
-	// karena pekerjaannya mencapai status final sebelum koordinator sempat
-	// memutuskan (keputusan B-10).
-	RejectionCancellationObsolete = "cancellation_obsolete"
+	// RejectionSettlementPending menandai permintaan pembatalan yang tidak lagi
+	// dapat diterapkan karena pekerjaannya sudah final, tetapi masih menunggu
+	// keputusan penyelesaian komersial dari koordinator (keputusan B-10).
+	RejectionSettlementPending = "settlement_pending"
+	// RejectionSettlementDecided menandai keputusan penyelesaian tersebut.
+	RejectionSettlementDecided = "settlement_decided"
 )
 
 // Batas kewajaran waktu kejadian yang dilaporkan perangkat (keputusan B-02).
@@ -208,6 +210,21 @@ func feeMessage(fee CancelFee) string {
 	default:
 		return "Tidak ada biaya pada tahap ini."
 	}
+}
+
+var settlementLabels = map[schema.SettlementOutcome]string{
+	schema.SettlementBilledFull:    "Ditagih penuh",
+	schema.SettlementBilledPartial: "Ditagih sebagian",
+	schema.SettlementWaived:        "Biaya dibebaskan",
+}
+
+// SettlementLabel memberi nama hasil penyelesaian dalam bahasa yang dipakai
+// pesan ke pengguna.
+func SettlementLabel(outcome schema.SettlementOutcome) string {
+	if label, ok := settlementLabels[outcome]; ok {
+		return label
+	}
+	return string(outcome)
 }
 
 var statusLabels = map[schema.JobStatus]string{

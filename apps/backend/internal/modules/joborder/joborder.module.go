@@ -46,5 +46,6 @@ func (m *Module) RegisterRoutes(rg *gin.RouterGroup, guards ...gin.HandlerFunc) 
 	orders.POST("/:id/assign", m.Controller.Assign)
 	orders.POST("/:id/cancel", m.Controller.Cancel)
 	orders.POST("/:id/cancellations/:requestId/decide", m.Controller.DecideCancellation)
+	orders.POST("/:id/cancellations/:requestId/settle", m.Controller.SettleCancellation)
 	orders.POST("/:id/corrections", m.Controller.Correct)
 }

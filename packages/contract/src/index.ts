@@ -43,6 +43,16 @@ export type OpenAlertType = NonNullable<
   Schemas["verifield-be_internal_modules_joborder_dto.JobOrderResponse"]["open_alert_type"]
 >
 
+export type SettlementOutcome = NonNullable<
+  Schemas["verifield-be_internal_modules_joborder_dto.SettleCancellationDTO"]["outcome"]
+>
+
+/** Menentukan pertanyaan yang dihadapkan kepada koordinator: pembatalannya
+    sendiri, atau penyelesaian komersial setelah pekerjaan terlanjur selesai. */
+export type CancellationStatus = NonNullable<
+  Schemas["verifield-be_internal_modules_joborder_dto.PendingCancellation"]["status"]
+>
+
 export type CancelFee = NonNullable<
   Schemas["verifield-be_internal_modules_joborder_dto.CancelResult"]["fee"]
 >
@@ -142,6 +152,10 @@ export type CancelJobOrderDTO = WajibKecuali<
 export type DecideCancellationDTO = WajibKecuali<
   Schemas["verifield-be_internal_modules_joborder_dto.DecideCancellationDTO"],
   "note"
+>
+
+export type SettleCancellationDTO = Required<
+  Schemas["verifield-be_internal_modules_joborder_dto.SettleCancellationDTO"]
 >
 
 export type CorrectStatusDTO = Required<

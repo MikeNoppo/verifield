@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowLeftIcon, CloudOffIcon, TriangleAlertIcon } from "lucide-react"
+import { ArrowLeftIcon, CloudOffIcon } from "lucide-react"
 
 import { StatusBadge } from "@/components/verifield/status-badge"
 import { StatusStepper } from "@/components/verifield/status-rail"
@@ -32,13 +32,6 @@ const ALERT: Record<
       "Order sudah final ketika laporan inspektor masuk, sehingga status tidak berubah. " +
       "Tetapi ada pekerjaan nyata yang telah dilakukan seseorang — kompensasi inspektor " +
       "perlu diselesaikan, dan situasinya dijelaskan kepada klien.",
-  },
-  cancellation_obsolete: {
-    Icon: TriangleAlertIcon,
-    judul: "Permintaan pembatalan gugur",
-    penjelasan:
-      "Klien mengajukan pembatalan, tetapi pekerjaan sudah ditutup sebelum keputusan diambil. " +
-      "Statusnya tidak dapat diubah lagi — aspek komersialnya perlu diselesaikan dengan klien.",
   },
 }
 
@@ -100,7 +93,7 @@ export function OpsOrderDetail({
         </div>
       </div>
 
-      {order.pendingCancellation && !isTerminal(order.status) ? (
+      {order.pendingCancellation ? (
         <div className="mb-4">
           <CancellationReview order={order} request={order.pendingCancellation} />
         </div>

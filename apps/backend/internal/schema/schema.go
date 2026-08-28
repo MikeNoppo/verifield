@@ -112,20 +112,33 @@ const (
 	CancellationPending  CancellationStatus = "pending"
 	CancellationApproved CancellationStatus = "approved"
 	CancellationRejected CancellationStatus = "rejected"
-	// CancellationObsolete menandai permintaan yang gugur sebelum sempat
-	// diputuskan, karena pekerjaannya sudah mencapai status final lebih dulu
-	// (keputusan B-10).
-	CancellationObsolete CancellationStatus = "obsolete"
+	// CancellationPendingSettlement: pekerjaan mencapai status final sebelum
+	// koordinator sempat memutuskan. Pembatalannya tidak lagi mungkin, tetapi
+	// pertanyaan komersialnya justru baru terbuka — permintaan tetap menunggu
+	// keputusan, hanya pertanyaannya yang berganti (keputusan B-10).
+	CancellationPendingSettlement CancellationStatus = "pending_settlement"
+	CancellationSettled           CancellationStatus = "settled"
+)
+
+// SettlementOutcome adalah hasil penyelesaian komersial ketika pekerjaan
+// terlanjur selesai mendahului keputusan pembatalan.
+//
+// Permintaan klien tidak cacat: ia masuk selagi pekerjaan masih berjalan, dan
+// yang membuat pekerjaan tetap jalan adalah keputusan perusahaan sendiri
+// (B-05). Karena itu klien punya klaim yang sah, dan hasilnya tidak bisa
+// diasumsikan selalu "tagih penuh".
+type SettlementOutcome string
+
+const (
+	SettlementBilledFull    SettlementOutcome = "billed_full"
+	SettlementBilledPartial SettlementOutcome = "billed_partial"
+	SettlementWaived        SettlementOutcome = "waived"
 )
 
 type AlertType string
 
 const (
 	AlertLateUpdateRejected AlertType = "late_update_rejected"
-	// AlertCancellationObsolete muncul ketika pekerjaan selesai sebelum
-	// koordinator memutuskan permintaan pembatalan klien: statusnya tidak bisa
-	// lagi diubah, tetapi aspek komersialnya tetap perlu diselesaikan.
-	AlertCancellationObsolete AlertType = "cancellation_obsolete"
 )
 
 // ---------------------------------------------------------------------------
@@ -373,6 +386,10 @@ type CancellationRequest struct {
 	DecidedBy    *User      `gorm:"foreignKey:DecidedByID"    json:"decided_by,omitempty"`
 	DecidedAt    *time.Time `                                 json:"decided_at,omitempty"`
 	DecisionNote *string    `gorm:"type:text"                 json:"decision_note,omitempty"`
+
+	// Terisi hanya pada status settled. Dipisahkan dari DecisionNote karena
+	// yang satu dapat dihitung untuk laporan, yang lain hanya dapat dibaca.
+	SettlementOutcome *SettlementOutcome `gorm:"type:varchar(20)"    json:"settlement_outcome,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

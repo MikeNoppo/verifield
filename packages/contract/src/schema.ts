@@ -481,6 +481,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/orders/{id}/cancellations/{requestId}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Putuskan penyelesaian komersial
+         * @description Dipakai ketika pekerjaan terlanjur selesai mendahului keputusan pembatalan. Status order tidak berubah; yang dicatat adalah siapa menanggung biayanya (keputusan B-10).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Id pengguna yang bertindak */
+                    "X-Actor-Id": string;
+                };
+                path: {
+                    /** @description Job order ID (UUID) */
+                    id: string;
+                    /** @description Cancellation request ID (UUID) */
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            /** @description Hasil penyelesaian beserta catatannya */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["verifield-be_internal_modules_joborder_dto.SettleCancellationDTO"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["verifield-be_internal_common_response.Envelope"] & {
+                            data?: components["schemas"]["verifield-be_internal_modules_joborder_dto.JobOrderResponse"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/orders/{id}/corrections": {
         parameters: {
             query?: never;
@@ -1089,13 +1143,16 @@ export interface components {
             location_name?: string;
             object_description?: string;
             /**
-             * @description Jenis alert yang masih terbuka. Dibutuhkan antarmuka karena kalimat yang
-             *     harus dibaca koordinator berbeda per jenis: laporan terlambat menyangkut
-             *     kompensasi inspektor, permintaan pembatalan yang gugur menyangkut
-             *     penyelesaian komersial dengan klien.
+             * @description Jenis alert yang masih terbuka, karena kalimat yang harus dibaca
+             *     koordinator berbeda per jenis.
+             *
+             *     NOTE: pekerjaan yang selesai mendahului keputusan pembatalan TIDAK
+             *     memakai alert. Permintaannya sendiri yang berpindah menunggu penyelesaian
+             *     dan tetap berada di antrean koordinator (B-10) — satu keadaan cukup satu
+             *     mekanisme.
              * @enum {string}
              */
-            open_alert_type?: "late_update_rejected" | "cancellation_obsolete";
+            open_alert_type?: "late_update_rejected";
             /**
              * @description Hanya terisi pada endpoint detail. Koordinator butuh id-nya untuk
              *     memutuskan, dan alasannya untuk memutuskan dengan benar.
@@ -1154,7 +1211,7 @@ export interface components {
              * @example late_after_final
              * @enum {string}
              */
-            rejection_reason?: "late_after_final" | "out_of_order" | "pending_approval" | "cancellation_rejected" | "cancellation_obsolete";
+            rejection_reason?: "late_after_final" | "out_of_order" | "pending_approval" | "cancellation_rejected" | "settlement_pending" | "settlement_decided";
             /** @example 42 */
             seq?: number;
             /**
@@ -1168,6 +1225,23 @@ export interface components {
             id?: string;
             reason?: string;
             requested_by_name?: string;
+            /**
+             * @description Menentukan pertanyaan yang dihadapkan kepada koordinator: pembatalannya
+             *     sendiri, atau penyelesaian komersial ketika pekerjaan sudah terlanjur
+             *     selesai (keputusan B-10).
+             * @example pending
+             * @enum {string}
+             */
+            status?: "pending" | "pending_settlement";
+        };
+        "verifield-be_internal_modules_joborder_dto.SettleCancellationDTO": {
+            /** @example Disepakati menagih separuh biaya kunjungan */
+            note: string;
+            /**
+             * @example billed_partial
+             * @enum {string}
+             */
+            outcome: "billed_full" | "billed_partial" | "waived";
         };
         "verifield-be_internal_modules_joborder_dto.SubmitStatusEventDTO": {
             /**

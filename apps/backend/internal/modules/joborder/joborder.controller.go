@@ -307,6 +307,43 @@ func (ctl *Controller) DecideCancellation(c *gin.Context) {
 	response.OK(c, "Keputusan pembatalan tercatat", order)
 }
 
+// SettleCancellation godoc
+//
+//	@Summary		Putuskan penyelesaian komersial
+//	@Description	Dipakai ketika pekerjaan terlanjur selesai mendahului keputusan pembatalan. Status order tidak berubah; yang dicatat adalah siapa menanggung biayanya (keputusan B-10).
+//	@Tags			job-orders
+//	@Accept			json
+//	@Produce		json
+//	@Param			X-Actor-Id	header		string						true	"Id pengguna yang bertindak"
+//	@Param			id			path		string						true	"Job order ID (UUID)"
+//	@Param			requestId	path		string						true	"Cancellation request ID (UUID)"
+//	@Param			payload		body		dto.SettleCancellationDTO	true	"Hasil penyelesaian beserta catatannya"
+//	@Success		200			{object}	response.Envelope{data=dto.JobOrderResponse}
+//	@Router			/orders/{id}/cancellations/{requestId}/settle [post]
+func (ctl *Controller) SettleCancellation(c *gin.Context) {
+	actor, err := actorOf(c)
+	if err != nil {
+		c.Error(err) //nolint:errcheck
+		return
+	}
+
+	var payload dto.SettleCancellationDTO
+	if err := httpx.BindJSON(c, &payload); err != nil {
+		c.Error(err) //nolint:errcheck
+		return
+	}
+
+	order, err := ctl.service.SettleCancellation(
+		c.Request.Context(), actor, c.Param("id"), c.Param("requestId"), payload,
+	)
+	if err != nil {
+		c.Error(err) //nolint:errcheck
+		return
+	}
+
+	response.OK(c, "Penyelesaian tercatat", order)
+}
+
 // Correct godoc
 //
 //	@Summary		Koreksi status oleh koordinator

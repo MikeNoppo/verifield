@@ -1,10 +1,16 @@
-import type { OpenAlertType, Role, Status } from "@verifield/contract"
+import type {
+  CancellationStatus,
+  OpenAlertType,
+  Role,
+  SettlementOutcome,
+  Status,
+} from "@verifield/contract"
 
 /** Status dan peran TIDAK ditulis ulang di sini — keduanya berasal dari anotasi
     Go lewat paket kontrak. Menyalinnya berarti dua daftar yang bisa menyimpang
     diam-diam; dengan cara ini, menambah satu status di backend langsung membuat
     setiap switch yang belum menanganinya gagal dikompilasi. */
-export type { OpenAlertType, Role, Status }
+export type { CancellationStatus, OpenAlertType, Role, SettlementOutcome, Status }
 
 /** Segmen URL yang mewakili peran. Ini yang dilihat pengguna; Role yang dipakai
     aturan bisnis. */
@@ -26,7 +32,13 @@ export type EventKind =
   | "out_of_order"
   | "cancellation_request"
   | "cancellation_rejected"
-  | "cancellation_obsolete"
+  | "settlement_pending"
+  | "settlement_decided"
+  /** Entri yang tidak diterapkan dengan alasan yang belum dikenal antarmuka.
+      Riwayat bersifat menambah, jadi alasan yang sudah dipensiunkan tetap hidup
+      di baris lama — dan menggambarnya sebagai transisi biasa akan menyatakan
+      status berpindah, padahal justru tidak. */
+  | "rejected_other"
 
 export type StatusEvent = {
   id: string
@@ -54,6 +66,9 @@ export type PendingCancellation = {
   reason: string
   requestedByName: string
   createdAt: string
+  /** `pending` menuntut keputusan pembatalan; `pending_settlement` menuntut
+      keputusan penyelesaian komersial karena pekerjaannya sudah selesai. */
+  status: CancellationStatus
 }
 
 export type JobOrder = {

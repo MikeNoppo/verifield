@@ -14,6 +14,7 @@ import type {
   InspectionType,
   Inspector,
   JobOrder,
+  SettlementOutcome,
   Status,
   StatusEvent,
 } from "@/lib/domain/types"
@@ -42,10 +43,15 @@ function kindOf(d: StatusEventDTO): EventKind {
       return "cancellation_request"
     case "cancellation_rejected":
       return "cancellation_rejected"
-    case "cancellation_obsolete":
-      return "cancellation_obsolete"
+    case "settlement_pending":
+      return "settlement_pending"
+    case "settlement_decided":
+      return "settlement_decided"
     default:
-      return "transition"
+      // Sampai di sini berarti accepted=false dengan alasan yang belum dikenal.
+      // Jatuh ke "transition" akan menggambarkannya sebagai status yang
+      // berpindah — kebalikan dari yang sebenarnya terjadi.
+      return "rejected_other"
   }
 }
 
@@ -95,6 +101,7 @@ export function orderFromDTO(d: JobOrderDTO): JobOrder {
           reason: d.pending_cancellation.reason,
           requestedByName: d.pending_cancellation.requested_by_name,
           createdAt: d.pending_cancellation.created_at,
+          status: d.pending_cancellation.status,
         }
       : null,
     events: (d.events ?? []).map(eventFromDTO),
@@ -266,6 +273,24 @@ export async function cancelOrder(
   })
 
   return { ...result, order: orderFromDTO(result.order) }
+}
+
+/** Pekerjaan terlanjur selesai mendahului keputusan pembatalan. Statusnya tidak
+    berubah; yang diputuskan di sini adalah siapa menanggung biayanya (B-10). */
+export async function settleCancellation(
+  actorId: string,
+  id: string,
+  requestId: string,
+  outcome: SettlementOutcome,
+  note: string,
+): Promise<JobOrder> {
+  return orderFromDTO(
+    await apiFetch<JobOrderDTO>(`/orders/${id}/cancellations/${requestId}/settle`, {
+      actorId,
+      method: "POST",
+      body: JSON.stringify({ outcome, note }),
+    }),
+  )
 }
 
 export async function decideCancellation(
