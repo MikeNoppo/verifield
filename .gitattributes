@@ -1,0 +1,18 @@
+# Akhiran baris dikunci LF di repositori maupun di working tree.
+#
+# Tanpa ini, core.autocrlf=true pada Windows menaruh CRLF di working tree, yang
+# menimbulkan dua masalah nyata: `gofmt -l` menandai seluruh berkas Go sehingga
+# pemeriksaan format menjadi tidak berguna, dan skrip shell ber-CRLF gagal
+# dijalankan begitu masuk ke image Linux.
+* text=auto eol=lf
+
+# Berkas biner tidak boleh disentuh normalisasi.
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
