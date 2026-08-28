@@ -2,7 +2,6 @@ package joborder
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -45,10 +44,19 @@ type Repository interface {
 	FindByIDCompact(ctx context.Context, id uuid.UUID) (*schema.JobOrder, dto.Derived, error)
 	FindEvents(ctx context.Context, orderID uuid.UUID, afterSeq int64) ([]schema.JobStatusEvent, error)
 
-	// OrderIDsChangedSince mengembalikan id order yang punya event lebih baru
-	// dari cursor, terurut menaik. Dipakai untuk memutar ulang perubahan yang
-	// terlewat saat klien menyambung kembali.
-	OrderIDsChangedSince(ctx context.Context, seq int64) ([]uuid.UUID, error)
+	// FindCompactChangedSince mengembalikan keadaan terkini setiap order yang
+	// berubah sejak cursor, terurut menaik menurut seq perubahan terakhirnya.
+	// Dipakai untuk memutar ulang perubahan yang terlewat saat klien menyambung
+	// kembali.
+	//
+	// Satu metode, bukan "ambil id lalu ambil satu per satu": pemulihan justru
+	// berjalan saat banyak klien menyambung ulang bersamaan — sesudah rilis atau
+	// sesudah jaringan pulih — dan di sanalah satu kueri per order paling mahal.
+	//
+	// Urutan menurut seq penting: field id pada pesan SSE diisi seq, dan browser
+	// mengirim balik nilai TERAKHIR yang ia terima sebagai Last-Event-ID.
+	// Mengirim urutan acak membuat kursor mundur tanpa alasan.
+	FindCompactChangedSince(ctx context.Context, seq int64) ([]schema.JobOrder, map[uuid.UUID]dto.Derived, error)
 
 	// LockOrder mengambil order dengan SELECT ... FOR UPDATE. Seluruh penulisan
 	// event untuk satu order diserialkan lewat kunci ini.
@@ -296,45 +304,73 @@ type derivedResult struct {
 	err     error
 }
 
-// derivedForOne melengkapi kolom turunan dengan detail permintaan pembatalan
-// yang tertunda. Sengaja hanya pada endpoint detail: daftar cukup tahu ada atau
-// tidaknya, sedangkan koordinator yang membuka satu order butuh id dan alasannya
-// untuk bisa memutuskan.
+// derivedForOne adalah derivedDetailedFor untuk satu order.
 func derivedForOne(r *gormRepository, ctx context.Context, id uuid.UUID) derivedResult {
-	byID, err := r.derivedFor(ctx, []uuid.UUID{id})
+	byID, err := r.derivedDetailedFor(ctx, []uuid.UUID{id})
 	if err != nil {
 		return derivedResult{err: err}
 	}
-	derived := byID[id]
+	return derivedResult{derived: byID[id]}
+}
 
-	if !derived.CancellationRequested {
-		return derivedResult{derived: derived}
+// derivedDetailedFor melengkapi kolom turunan dengan detail permintaan
+// pembatalan yang masih terbuka, untuk sekumpulan order sekaligus.
+//
+// Detail ini tidak ikut pada daftar order: daftar cukup tahu ada atau tidaknya,
+// sedangkan koordinator yang membuka satu order — atau menerima perubahannya
+// lewat stream — butuh id dan alasannya untuk bisa memutuskan. Jalur detail dan
+// jalur siaran memakai fungsi yang sama supaya keduanya tidak pernah
+// menghasilkan bentuk payload yang berbeda.
+func (r *gormRepository) derivedDetailedFor(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]dto.Derived, error) {
+	byID, err := r.derivedFor(ctx, ids)
+	if err != nil {
+		return nil, err
 	}
 
-	var request schema.CancellationRequest
+	withRequest := make([]uuid.UUID, 0, len(byID))
+	for id, derived := range byID {
+		if derived.CancellationRequested {
+			withRequest = append(withRequest, id)
+		}
+	}
+	if len(withRequest) == 0 {
+		return byID, nil
+	}
+
+	var requests []schema.CancellationRequest
 	err = r.db.WithContext(ctx).
 		Preload("RequestedBy").
-		Where("job_order_id = ? AND status IN ?", id, openCancellationStatuses()).
-		First(&request).Error
+		Where("job_order_id IN ? AND status IN ?", withRequest, openCancellationStatuses()).
+		Order("created_at").
+		Find(&requests).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return derivedResult{derived: derived}
+		return nil, err
+	}
+
+	for i := range requests {
+		request := &requests[i]
+
+		derived := byID[request.JobOrderID]
+		// Service menjaga hanya ada satu permintaan terbuka per order; yang
+		// pertama menang bila invarian itu pernah dilanggar.
+		if derived.PendingCancellation != nil {
+			continue
 		}
-		return derivedResult{err: err}
+
+		pending := &dto.PendingCancellation{
+			ID:        request.ID.String(),
+			Reason:    request.Reason,
+			CreatedAt: request.CreatedAt,
+			Status:    string(request.Status),
+		}
+		if request.RequestedBy != nil {
+			pending.RequestedByName = request.RequestedBy.Name
+		}
+		derived.PendingCancellation = pending
+		byID[request.JobOrderID] = derived
 	}
 
-	pending := &dto.PendingCancellation{
-		ID:        request.ID.String(),
-		Reason:    request.Reason,
-		CreatedAt: request.CreatedAt,
-		Status:    string(request.Status),
-	}
-	if request.RequestedBy != nil {
-		pending.RequestedByName = request.RequestedBy.Name
-	}
-	derived.PendingCancellation = pending
-
-	return derivedResult{derived: derived}
+	return byID, nil
 }
 
 func (r *gormRepository) FindEvents(ctx context.Context, orderID uuid.UUID, afterSeq int64) ([]schema.JobStatusEvent, error) {
@@ -347,15 +383,62 @@ func (r *gormRepository) FindEvents(ctx context.Context, orderID uuid.UUID, afte
 	return events, err
 }
 
-func (r *gormRepository) OrderIDsChangedSince(ctx context.Context, seq int64) ([]uuid.UUID, error) {
+func (r *gormRepository) FindCompactChangedSince(
+	ctx context.Context, seq int64,
+) ([]schema.JobOrder, map[uuid.UUID]dto.Derived, error) {
+	empty := make(map[uuid.UUID]dto.Derived)
+
+	ids, err := r.orderIDsChangedSince(ctx, seq)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(ids) == 0 {
+		return nil, empty, nil
+	}
+
+	var orders []schema.JobOrder
+	if err := withRelations(r.db.WithContext(ctx)).Where("id IN ?", ids).Find(&orders).Error; err != nil {
+		return nil, nil, err
+	}
+
+	derived, err := r.derivedDetailedFor(ctx, ids)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return orderedBy(orders, ids), derived, nil
+}
+
+// orderIDsChangedSince mengurutkan menurut seq perubahan terakhir tiap order,
+// bukan menurut id — id adalah UUID, dan mengurutkannya menghasilkan urutan
+// yang tidak berhubungan sama sekali dengan urutan kejadian.
+func (r *gormRepository) orderIDsChangedSince(ctx context.Context, seq int64) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
-	err := r.db.WithContext(ctx).
-		Model(&schema.JobStatusEvent{}).
-		Distinct("job_order_id").
-		Where("seq > ?", seq).
-		Order("job_order_id").
-		Pluck("job_order_id", &ids).Error
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT job_order_id
+		  FROM job_status_events
+		 WHERE seq > ?
+		 GROUP BY job_order_id
+		 ORDER BY MAX(seq)
+	`, seq).Scan(&ids).Error
 	return ids, err
+}
+
+// orderedBy mengembalikan order sesuai urutan ids. Baris yang tidak ditemukan
+// dilewati begitu saja — order bisa saja terhapus di antara kedua kueri.
+func orderedBy(orders []schema.JobOrder, ids []uuid.UUID) []schema.JobOrder {
+	byID := make(map[uuid.UUID]int, len(orders))
+	for i := range orders {
+		byID[orders[i].ID] = i
+	}
+
+	out := make([]schema.JobOrder, 0, len(orders))
+	for _, id := range ids {
+		if i, ok := byID[id]; ok {
+			out = append(out, orders[i])
+		}
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------------

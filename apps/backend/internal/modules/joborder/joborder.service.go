@@ -152,21 +152,14 @@ func (s *service) Snapshot(ctx context.Context, orderID uuid.UUID) (*dto.JobOrde
 }
 
 func (s *service) SnapshotsChangedSince(ctx context.Context, seq int64) ([]dto.JobOrderResponse, error) {
-	ids, err := s.repo.OrderIDsChangedSince(ctx, seq)
+	orders, derived, err := s.repo.FindCompactChangedSince(ctx, seq)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]dto.JobOrderResponse, 0, len(ids))
-	for _, id := range ids {
-		snapshot, err := s.Snapshot(ctx, id)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
-			return nil, err
-		}
-		out = append(out, *snapshot)
+	out := make([]dto.JobOrderResponse, 0, len(orders))
+	for i := range orders {
+		out = append(out, dto.ToJobOrderResponse(&orders[i], derived[orders[i].ID]))
 	}
 	return out, nil
 }

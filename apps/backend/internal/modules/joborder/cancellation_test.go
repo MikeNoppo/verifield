@@ -26,6 +26,11 @@ type fakeRepo struct {
 	alerts   []*schema.JobOrderAlert
 	seq      int64
 	notified int64
+
+	// changed adalah order yang "berubah sejak kursor", beserta jumlah
+	// pemanggilannya. Jumlah itu yang menjaga jalur pemulihan tetap satu kueri.
+	changed      []schema.JobOrder
+	changedCalls int
 }
 
 func (f *fakeRepo) Transaction(_ context.Context, fn func(tx joborder.Repository) error) error {
@@ -111,8 +116,11 @@ func (f *fakeRepo) FindEvents(context.Context, uuid.UUID, int64) ([]schema.JobSt
 	return nil, nil
 }
 
-func (f *fakeRepo) OrderIDsChangedSince(context.Context, int64) ([]uuid.UUID, error) {
-	return nil, nil
+func (f *fakeRepo) FindCompactChangedSince(
+	context.Context, int64,
+) ([]schema.JobOrder, map[uuid.UUID]dto.Derived, error) {
+	f.changedCalls++
+	return f.changed, map[uuid.UUID]dto.Derived{}, nil
 }
 
 func (f *fakeRepo) UpdateInspector(context.Context, uuid.UUID, uuid.UUID) error { return nil }
@@ -347,5 +355,39 @@ func TestPenolakanPembatalanMembedakanWewenangDariKeadaan(t *testing.T) {
 		dto.CancelJobOrderDTO{Reason: "Diminta klien lewat telepon"})
 	if got := statusHTTP(t, err); got != http.StatusConflict {
 		t.Errorf("koordinator membatalkan order final: status = %d, ingin %d", got, http.StatusConflict)
+	}
+}
+
+// Pemulihan berjalan justru saat banyak klien menyambung ulang bersamaan —
+// sesudah rilis, atau sesudah jaringan pulih. Satu kueri per order pada jalur
+// itu berarti beban terbesar tepat pada saat sistem paling rapuh.
+//
+// Urutannya juga dijaga: field id pada pesan SSE diisi seq, dan browser
+// mengirim balik nilai TERAKHIR yang ia terima sebagai Last-Event-ID.
+func TestPemulihanMemakaiSatuKueriDanMenjagaUrutan(t *testing.T) {
+	p := siapkan(t, schema.StatusInProgress)
+	p.repo.changed = []schema.JobOrder{
+		{ID: uuid.New(), ReferenceNumber: "JO-2026-0007"},
+		{ID: uuid.New(), ReferenceNumber: "JO-2026-0002"},
+		{ID: uuid.New(), ReferenceNumber: "JO-2026-0005"},
+	}
+
+	snapshots, err := p.svc.SnapshotsChangedSince(context.Background(), 12)
+	if err != nil {
+		t.Fatalf("pemulihan gagal: %v", err)
+	}
+
+	if p.repo.changedCalls != 1 {
+		t.Errorf("jumlah kueri pemulihan = %d, mau 1", p.repo.changedCalls)
+	}
+
+	if len(snapshots) != len(p.repo.changed) {
+		t.Fatalf("jumlah snapshot = %d, mau %d", len(snapshots), len(p.repo.changed))
+	}
+	for i, want := range p.repo.changed {
+		if snapshots[i].ReferenceNumber != want.ReferenceNumber {
+			t.Errorf("snapshot ke-%d = %s, mau %s",
+				i, snapshots[i].ReferenceNumber, want.ReferenceNumber)
+		}
 	}
 }
