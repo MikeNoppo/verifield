@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { cancelAuthority, cancelOffered } from "./status"
+import { cancelAuthority, cancelOffered, type CancelAuthority } from "./status"
 import type { Role, Status } from "./types"
 
 /** Matriks ini adalah padanan tampilan dari EvaluateCancel di backend. Yang
@@ -9,7 +9,7 @@ import type { Role, Status } from "./types"
     sudah selesai" — kalimat yang seolah menjanjikan bahwa pada order lain ia
     akan berhasil. */
 describe("cancelAuthority", () => {
-  const cases: Array<[string, Role, Status, string]> = [
+  const cases: Array<[string, Role, Status, CancelAuthority["kind"]]> = [
     ["klien sebelum penugasan", "client", "requested", "allowed"],
     ["klien saat inspektor berangkat", "client", "on_the_way", "allowed"],
     ["klien saat pekerjaan berjalan", "client", "in_progress", "requires_approval"],
