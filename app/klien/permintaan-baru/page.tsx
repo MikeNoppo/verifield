@@ -4,7 +4,8 @@ import * as React from "react"
 import Link from "next/link"
 import { ArrowLeftIcon, CircleCheckIcon } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -39,9 +40,9 @@ export default function PermintaanBaru() {
           Koordinator akan menugaskan inspektor, dan statusnya berubah di layar Anda tanpa perlu
           memuat ulang halaman.
         </p>
-        <Button render={<Link href="/klien" />} className="mt-2">
+        <Link href="/klien" className={cn(buttonVariants(), "mt-2")}>
           Lihat daftar order
-        </Button>
+        </Link>
       </Card>
     )
   }
@@ -113,9 +114,9 @@ export default function PermintaanBaru() {
           </FieldGroup>
 
           <div className="mt-6 flex justify-end gap-2">
-            <Button render={<Link href="/klien" />} variant="secondary" type="button">
+            <Link href="/klien" className={buttonVariants({ variant: "secondary" })}>
               Batal
-            </Button>
+            </Link>
             <Button type="submit">Kirim Permintaan</Button>
           </div>
         </form>

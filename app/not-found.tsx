@@ -1,6 +1,7 @@
 import Link from "next/link"
 
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export default function NotFound() {
   return (
@@ -10,9 +11,12 @@ export default function NotFound() {
         Nomor referensi ini tidak ada, atau bukan milik perusahaan yang sedang Anda gunakan.
         Klien hanya dapat melihat order milik perusahaannya sendiri.
       </p>
-      <Button render={<Link href="/" />} variant="secondary" className="mt-2">
+      <Link
+        href="/"
+        className={cn(buttonVariants({ variant: "secondary" }), "mt-2")}
+      >
         Kembali ke awal
-      </Button>
+      </Link>
     </div>
   )
 }

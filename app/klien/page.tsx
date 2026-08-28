@@ -4,7 +4,7 @@ import { PlusIcon } from "lucide-react"
 import { PageHeading } from "@/components/verifield/app-shell"
 import { StatusBadge } from "@/components/verifield/status-badge"
 import { StatusRail } from "@/components/verifield/status-rail"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
   Table,
@@ -50,10 +50,13 @@ export default async function KlienOrders({
           </>
         }
         action={
-          <Button render={<Link href="/klien/permintaan-baru" />} size="sm">
+          <Link
+            href="/klien/permintaan-baru"
+            className={buttonVariants({ size: "sm" })}
+          >
             <PlusIcon data-icon="inline-start" />
             Permintaan Baru
-          </Button>
+          </Link>
         }
       />
 
