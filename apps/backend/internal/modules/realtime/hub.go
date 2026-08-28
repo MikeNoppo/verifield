@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"verifield-be/internal/modules/joborder"
 	"verifield-be/internal/modules/joborder/dto"
 	"verifield-be/internal/schema"
 )
@@ -30,18 +31,19 @@ type Scope struct {
 // Allows menyaring di server sebelum menulis ke koneksi. Penyaringan tidak
 // boleh diserahkan ke klien: kerahasiaan komersial antar klien (asumsi A-03)
 // harus tetap berlaku walaupun seseorang membuka stream secara langsung.
+//
+// Aturannya dipinjam dari modul joborder, bukan ditulis ulang di sini: batas
+// baca yang berbeda antara jalur permintaan dan jalur siaran berarti satu di
+// antaranya bocor.
 func (s Scope) Allows(order dto.JobOrderResponse) bool {
-	switch s.Role {
-	case schema.RoleClient:
-		return s.CompanyID != nil && order.CompanyID == s.CompanyID.String()
-	case schema.RoleInspector:
-		return s.InspectorID != nil &&
-			order.InspectorID != nil &&
-			*order.InspectorID == s.InspectorID.String()
-	default:
-		// Koordinator dan CS memantau seluruh order berjalan.
-		return true
+	v := joborder.Viewer{Role: s.Role}
+	if s.InspectorID != nil {
+		v.ActorID = s.InspectorID.String()
 	}
+	if s.CompanyID != nil {
+		v.CompanyID = s.CompanyID.String()
+	}
+	return joborder.VisibleInResponse(v, order)
 }
 
 // subscriber adalah satu koneksi SSE yang sedang terbuka.
