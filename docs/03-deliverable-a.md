@@ -8,6 +8,12 @@ teknis dan bukti implementasi ada di [02-technical-design.md](02-technical-desig
 
 ---
 
+**Peta baca.** Bagian 0 memuat seluruh gagasannya dalam satu menit. Bagian 1–3 dan 7
+adalah inti — pemahaman masalah, asumsi, batas cakupan, dan edge case. Bagian 4–6 adalah
+gambar. Sisanya rincian yang boleh dilewati sampai dibutuhkan.
+
+---
+
 ## 0. Ringkasan Eksekutif
 
 Untuk pembaca yang hanya punya satu menit.
