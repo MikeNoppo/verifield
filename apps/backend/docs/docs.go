@@ -723,6 +723,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/ready": {
+            "get": {
+                "description": "Berbeda dari health check: probe ini menyentuh database, dan menjawab 503 selama database belum terjangkau.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness probe",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/verifield-be_internal_common_response.Envelope"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/verifield-be_internal_common_response.Envelope"
+                        }
+                    }
+                }
+            }
+        },
         "/stream": {
             "get": {
                 "description": "Mengirim keadaan terkini setiap order yang berubah. Cakupan ditentukan peran pemanggil. Saat menyambung ulang, browser mengirim Last-Event-ID sendiri; pada koneksi pertama klien menyertakan last_event_id lewat query.",

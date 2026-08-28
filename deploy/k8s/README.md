@@ -27,10 +27,17 @@ kursor `seq` — tidak ada data yang hilang, hanya jeda beberapa detik.
 pun. Ini yang membuat `replicas: 3` benar-benar bekerja tanpa session affinity
 di Ingress.
 
-**Readiness memisahkan "hidup" dari "siap".** `livenessProbe` hanya memastikan
-proses tidak menggantung; `readinessProbe` menembak `/health`, yang baru menjawab
-setelah koneksi database berhasil. Pod yang databasenya belum terjangkau tidak
-akan menerima lalu lintas.
+**Readiness memisahkan "hidup" dari "siap".** Keduanya menembak endpoint yang
+berbeda, dan perbedaannya disengaja. `livenessProbe` menembak `/health`, yang
+tidak menyentuh dependensi apa pun — ia hanya memastikan prosesnya tidak
+menggantung. `readinessProbe` menembak `/ready`, yang mem-*ping* database dan
+menjawab 503 selama database belum terjangkau.
+
+Kalau keduanya memakai endpoint yang sama-sama memeriksa database, database yang
+sedang bermasalah akan membuat kubelet membunuh dan menyalakan ulang seluruh pod
+berulang kali — memperparah keadaan, bukan memulihkannya. Yang benar adalah pod
+tetap hidup, tetapi dikeluarkan dari Service sampai databasenya kembali
+terjangkau.
 
 **Migrasi berjalan sebagai Job, bukan initContainer.** initContainer akan
 menjalankan migrasi sekali per pod, sehingga tiga replika berarti tiga eksekusi

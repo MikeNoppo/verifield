@@ -975,6 +975,24 @@ paths:
       summary: Perbarui status dari lapangan
       tags:
       - job-orders
+  /ready:
+    get:
+      description: 'Berbeda dari health check: probe ini menyentuh database, dan menjawab
+        503 selama database belum terjangkau.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/verifield-be_internal_common_response.Envelope'
+      summary: Readiness probe
+      tags:
+      - health
   /stream:
     get:
       description: Mengirim keadaan terkini setiap order yang berubah. Cakupan ditentukan

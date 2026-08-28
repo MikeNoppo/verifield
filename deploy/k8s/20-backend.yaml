@@ -47,10 +47,12 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 20
             failureThreshold: 3
-          # Readiness yang menentukan pod menerima lalu lintas atau tidak.
+          # Readiness yang menentukan pod menerima lalu lintas atau tidak, dan
+          # satu-satunya probe yang menyentuh database: pod yang databasenya
+          # belum terjangkau dikeluarkan dari Service, bukan dibunuh.
           readinessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /ready
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
