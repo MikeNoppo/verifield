@@ -96,7 +96,7 @@ export function cancelAuthority(role: Role, status: Status): CancelAuthority {
     }
   }
 
-  if (role === "lapangan") {
+  if (role === "inspector") {
     return {
       kind: "forbidden",
       message:
@@ -104,7 +104,7 @@ export function cancelAuthority(role: Role, status: Status): CancelAuthority {
     }
   }
 
-  if (status === "in_progress" && role === "klien") {
+  if (status === "in_progress" && role === "client") {
     return {
       kind: "requires_approval",
       message:
@@ -156,14 +156,20 @@ export function inspectorActions(status: Status): Action[] {
   }
 }
 
+/** Kabar terakhir dari lapangan sudah terlalu lama. Dihitung dari waktu status
+    berubah, bukan waktu baris diperbarui — laporan yang tertahan tiga jam di
+    perangkat memang membuat order langsung tampak basi, dan itu benar. */
 export function isStale(order: JobOrder, now: Date, hours = 8): boolean {
   if (isTerminal(order.status)) return false
-  const last = new Date(order.updatedAt).getTime()
+  const last = new Date(order.statusChangedAt).getTime()
   return now.getTime() - last > hours * 3_600_000
 }
 
+/** Dibaca dari tanda yang dihitung server, bukan dari riwayat — daftar order
+    sengaja tidak membawa riwayat, dan justru di daftar itulah tanda ini paling
+    dibutuhkan koordinator. */
 export function hasLateRejected(order: JobOrder): boolean {
-  return order.events.some((e) => e.kind === "late_rejected")
+  return order.hasOpenAlert
 }
 
 export function needsAssignment(order: JobOrder): boolean {
