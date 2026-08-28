@@ -75,9 +75,14 @@ const (
 // berdasarkan waktu kejadian, sehingga satu jam perangkat yang salah setahun
 // bisa melempar satu entri ke ujung riwayat dan membuat seluruh urutan tampak
 // keliru.
+//
+// Waktu kejadian yang tidak dilaporkan sama sekali BUKAN penyesuaian: perangkat
+// yang sedang online memang tidak perlu mengirimnya, dan menandainya sebagai
+// disesuaikan akan memunculkan peringatan palsu pada riwayat yang dibaca klien.
+// Penanda ini hanya berarti "waktu yang dilaporkan perangkat tidak dipakai".
 func ClampOccurredAt(occurredAt, receivedAt time.Time) (time.Time, bool) {
 	if occurredAt.IsZero() {
-		return receivedAt, true
+		return receivedAt, false
 	}
 	if occurredAt.After(receivedAt.Add(maxClockSkewAhead)) {
 		return receivedAt, true

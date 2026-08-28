@@ -93,7 +93,10 @@ func TestWaktuKejadianDijepitSaatJamPerangkatMeleset(t *testing.T) {
 		{"mendahului sedikit, masih toleran", received.Add(2 * time.Minute), false},
 		{"jauh di masa depan", received.Add(72 * time.Hour), true},
 		{"jauh di masa lalu", received.Add(-30 * 24 * time.Hour), true},
-		{"tidak dikirim sama sekali", time.Time{}, true},
+		// Perangkat online yang tidak mengirim waktu bukan kasus jam meleset.
+		// Menandainya sebagai disesuaikan akan memunculkan peringatan palsu
+		// pada riwayat yang dibaca klien.
+		{"tidak dikirim sama sekali", time.Time{}, false},
 	}
 
 	for _, c := range cases {
@@ -106,7 +109,11 @@ func TestWaktuKejadianDijepitSaatJamPerangkatMeleset(t *testing.T) {
 			if adjusted && !got.Equal(received) {
 				t.Errorf("saat disetel, waktu harus jatuh ke waktu terima; dapat %v", got)
 			}
-			if !adjusted && !got.Equal(c.occurred) {
+			mau := c.occurred
+			if mau.IsZero() {
+				mau = received
+			}
+			if !adjusted && !got.Equal(mau) {
 				t.Errorf("saat tidak disetel, waktu asli harus dipertahankan; dapat %v", got)
 			}
 		})
