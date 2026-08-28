@@ -1,7 +1,7 @@
 import { hasOpenAlert, isStale, isTerminal, needsAssignment } from "./status"
 import type { JobOrder, Status } from "./types"
 
-export type AttentionKey = "penugasan" | "pembatalan" | "basi" | "terlambat"
+export type AttentionKey = "unassigned" | "cancellation" | "stale" | "late_update"
 
 export type AttentionCounts = Record<AttentionKey, number>
 
@@ -14,10 +14,10 @@ export type AttentionCounts = Record<AttentionKey, number>
  *  bukan diperbesar limit-nya. */
 export function attentionCounts(orders: JobOrder[], now: Date): AttentionCounts {
   return {
-    penugasan: orders.filter(needsAssignment).length,
-    pembatalan: orders.filter((o) => o.cancellationRequested).length,
-    basi: orders.filter((o) => isStale(o, now)).length,
-    terlambat: orders.filter(hasOpenAlert).length,
+    unassigned: orders.filter(needsAssignment).length,
+    cancellation: orders.filter((o) => o.cancellationRequested).length,
+    stale: orders.filter((o) => isStale(o, now)).length,
+    late_update: orders.filter(hasOpenAlert).length,
   }
 }
 

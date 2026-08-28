@@ -162,19 +162,19 @@ func applyFilters(tx *gorm.DB, query dto.ListQuery) *gorm.DB {
 	}
 
 	switch query.Attention {
-	case "penugasan":
+	case "unassigned":
 		tx = tx.Where("current_status = ?", schema.StatusRequested)
-	case "pembatalan":
+	case "cancellation":
 		tx = tx.Where(
 			"EXISTS (SELECT 1 FROM cancellation_requests c WHERE c.job_order_id = job_orders.id AND c.status IN ?)",
 			openCancellationStatuses(),
 		)
-	case "basi":
+	case "stale":
 		tx = tx.Where(
 			"current_status NOT IN ? AND status_changed_at < ?",
 			finalStatuses(), time.Now().Add(-staleAfter),
 		)
-	case "terlambat":
+	case "late_update":
 		tx = tx.Where(
 			"EXISTS (SELECT 1 FROM job_order_alerts a WHERE a.job_order_id = job_orders.id AND a.resolved_at IS NULL)",
 		)

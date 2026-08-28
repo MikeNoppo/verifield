@@ -4,7 +4,7 @@ import { actorFor } from "@/lib/session"
 import { first } from "@/lib/actor/link"
 import type { AttentionKey } from "@/lib/domain/summary"
 
-const ATTENTION_KEYS = ["penugasan", "pembatalan", "basi", "terlambat"] as const
+const ATTENTION_KEYS = ["unassigned", "cancellation", "stale", "late_update"] as const
 
 export default async function OpsDashboard({
   searchParams,

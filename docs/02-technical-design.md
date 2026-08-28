@@ -142,7 +142,7 @@ oleh jalur yang kebetulan sudah dijaga (keputusan B-10).
 Yang **tidak** ikut dikunci adalah permintaan klien. Menutupnya sekalian akan menukar satu
 cacat dengan cacat lain: statusnya benar, tetapi koordinator kehilangan seluruh tindakan
 padahal masih ada pertanyaan komersial yang belum dijawab siapa pun. Karena itu permintaan
-berpindah ke `pending_settlement` dan tetap berada di antrean — saringan `attention=pembatalan`
+berpindah ke `pending_settlement` dan tetap berada di antrean — saringan `attention=cancellation`
 serta kolom turunan `cancellation_requested` sama-sama membaca kedua status terbuka, sehingga
 ia muncul di layar koordinator tanpa mekanisme tambahan.
 

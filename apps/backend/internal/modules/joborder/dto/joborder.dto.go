@@ -103,11 +103,11 @@ type ListQuery struct {
 	InspectorID string `form:"inspector_id" binding:"omitempty,uuid4"`
 
 	// Saringan layar koordinator: order mana yang butuh disentuh manusia.
-	//   penugasan  — belum ada inspektor
-	//   pembatalan — ada permintaan pembatalan menunggu keputusan
-	//   basi       — tanpa pembaruan lebih dari 8 jam dan belum final
-	//   terlambat  — ada pembaruan terlambat yang ditolak dan belum diselesaikan
-	Attention string `form:"attention" binding:"omitempty,oneof=penugasan pembatalan basi terlambat"`
+	//   unassigned   — belum ada inspektor
+	//   cancellation — ada permintaan pembatalan menunggu keputusan
+	//   stale        — tanpa pembaruan lebih dari 8 jam dan belum final
+	//   late_update  — ada pembaruan terlambat yang ditolak dan belum diselesaikan
+	Attention string `form:"attention" binding:"omitempty,oneof=unassigned cancellation stale late_update"`
 }
 
 // ---------------------------------------------------------------------------

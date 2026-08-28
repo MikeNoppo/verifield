@@ -32,18 +32,18 @@ import { relativeTime } from "@/lib/format"
 
 const ATTENTION = [
   {
-    key: "penugasan",
+    key: "unassigned",
     label: "Butuh penugasan",
     hint: "Order diterima, inspektor belum ditentukan",
   },
   {
-    key: "pembatalan",
+    key: "cancellation",
     label: "Permintaan pembatalan",
     hint: "Diajukan setelah pekerjaan dimulai, menunggu keputusan Anda",
   },
-  { key: "basi", label: "Tanpa pembaruan >8 jam", hint: "Tindak lanjuti sebelum klien bertanya" },
+  { key: "stale", label: "Tanpa pembaruan >8 jam", hint: "Tindak lanjuti sebelum klien bertanya" },
   {
-    key: "terlambat",
+    key: "late_update",
     label: "Perlu tindak lanjut",
     hint: "Ada pekerjaan nyata yang perlu diselesaikan kompensasinya",
   },
@@ -51,9 +51,9 @@ const ATTENTION = [
 
 function cocok(order: JobOrder, key: AttentionKey | undefined, now: Date): boolean {
   if (!key) return true
-  if (key === "penugasan") return needsAssignment(order)
-  if (key === "pembatalan") return order.cancellationRequested
-  if (key === "basi") return isStale(order, now)
+  if (key === "unassigned") return needsAssignment(order)
+  if (key === "cancellation") return order.cancellationRequested
+  if (key === "stale") return isStale(order, now)
   return hasOpenAlert(order)
 }
 
