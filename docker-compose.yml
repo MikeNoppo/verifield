@@ -51,6 +51,7 @@ services:
     environment:
       <<: *db-env
       APP_ENV: ${APP_ENV:-development}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Jakarta}
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: 8080
       # Browser mengakses backend langsung untuk stream SSE, sehingga origin

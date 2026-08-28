@@ -16,13 +16,18 @@ import (
 // Perusahaan pemesan tidak ikut dikirim — ia diambil dari aktor, supaya klien
 // tidak bisa membuat order atas nama perusahaan lain (asumsi A-03).
 type CreateJobOrderDTO struct {
-	InspectionTypeID  string    `json:"inspection_type_id"  binding:"required,uuid4"        example:"6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11"`
-	ObjectDescription string    `json:"object_description"  binding:"required,min=3,max=255" example:"Batu bara 5.000 MT"`
-	LocationName      string    `json:"location_name"       binding:"required,min=3,max=160" example:"Dermaga 3, Pelabuhan Tanjung Priok"`
-	LocationAddress   string    `json:"location_address"    binding:"required,min=3"         example:"Jl. Palmerah No. 1, Jakarta Utara"`
-	City              string    `json:"city"                binding:"required,min=2,max=80"  example:"Jakarta"`
-	ScheduledStartAt  time.Time `json:"scheduled_start_at"  binding:"required"`
-	ScheduledEndAt    time.Time `json:"scheduled_end_at"    binding:"required,gtfield=ScheduledStartAt"`
+	InspectionTypeID  string `json:"inspection_type_id"  binding:"required,uuid4"        example:"6f1e6f0c-6f2a-4c5e-9f3a-0b6b1a4d2c11"`
+	ObjectDescription string `json:"object_description"  binding:"required,min=3,max=255" example:"Batu bara 5.000 MT"`
+	LocationName      string `json:"location_name"       binding:"required,min=3,max=160" example:"Dermaga 3, Pelabuhan Tanjung Priok"`
+	LocationAddress   string `json:"location_address"    binding:"required,min=3"         example:"Jl. Palmerah No. 1, Jakarta Utara"`
+	City              string `json:"city"                binding:"required,min=2,max=80"  example:"Jakarta"`
+
+	// Kewajaran jadwal — belum lewat, tidak terlalu jauh ke depan, dan berada
+	// pada jam kerja lapangan — diperiksa SchedulePolicy, bukan tag binding:
+	// aturannya bergantung pada waktu sekarang dan pada zona operasi, yang
+	// keduanya tidak dapat dinyatakan sebagai tag statis.
+	ScheduledStartAt time.Time `json:"scheduled_start_at"  binding:"required"`
+	ScheduledEndAt   time.Time `json:"scheduled_end_at"    binding:"required,gtfield=ScheduledStartAt"`
 }
 
 // AssignInspectorDTO adalah body penugasan inspektor oleh koordinator.

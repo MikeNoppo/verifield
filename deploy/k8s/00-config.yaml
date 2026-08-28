@@ -4,6 +4,10 @@ metadata:
   name: verifield-config
 data:
   APP_ENV: "production"
+  # Zona operasi lapangan. Image backend memuat tzdata agar zona ini benar-benar
+  # dapat dimuat — tanpa paket itu Go jatuh ke UTC dan aturan jam kerja meleset
+  # tujuh jam.
+  APP_TIMEZONE: "Asia/Jakarta"
   HTTP_HOST: "0.0.0.0"
   HTTP_PORT: "8080"
   HTTP_ALLOWED_ORIGINS: "https://verifield.example.id"

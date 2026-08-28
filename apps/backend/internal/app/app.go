@@ -48,6 +48,11 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 		return nil, err
 	}
 
+	location, err := cfg.App.Location()
+	if err != nil {
+		return nil, err
+	}
+
 	// Perubahan schema TIDAK dilakukan di sini. Jalankan `./bin/migrate up`
 	// (padanan `prisma migrate deploy`) sebelum menyalakan aplikasi.
 
@@ -60,7 +65,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 
 	// --- Perakitan modul (padanan daftar `imports` di AppModule) ---
 	userModule := user.NewModule(db)
-	joborderModule := joborder.NewModule(db, userModule.Service)
+	joborderModule := joborder.NewModule(db, userModule.Service, joborder.DefaultSchedulePolicy(location))
 	referenceModule := reference.NewModule(db)
 	realtimeModule := realtime.NewModule(cfg.Database.DSN(), joborderModule.Service, log)
 

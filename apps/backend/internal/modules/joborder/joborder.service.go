@@ -52,13 +52,14 @@ type Service interface {
 }
 
 type service struct {
-	repo  Repository
-	users UserFinder
+	repo     Repository
+	users    UserFinder
+	schedule SchedulePolicy
 }
 
 // NewService merakit service dari repository dan dependensi lintas modulnya.
-func NewService(repo Repository, users UserFinder) Service {
-	return &service{repo: repo, users: users}
+func NewService(repo Repository, users UserFinder, schedule SchedulePolicy) Service {
+	return &service{repo: repo, users: users, schedule: schedule}
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +185,13 @@ func (s *service) Create(ctx context.Context, actor Actor, input dto.CreateJobOr
 
 	typeID, err := parseUUIDField(input.InspectionTypeID, "inspection_type_id")
 	if err != nil {
+		return nil, err
+	}
+
+	// Aturan jadwal ditegakkan di sini, bukan hanya di formulir: order dengan
+	// jadwal yang mustahil dieksekusi akan menjadi order yang tidak pernah
+	// selesai, dan justru itu yang membuat klien menelepon CS.
+	if err := s.schedule.Validate(input.ScheduledStartAt, input.ScheduledEndAt, time.Now()); err != nil {
 		return nil, err
 	}
 

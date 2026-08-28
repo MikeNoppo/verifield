@@ -17,11 +17,12 @@ type Module struct {
 
 // NewModule merakit repository → service → controller.
 //
-// users di-inject, bukan dikonstruksi di sini: ketergantungan lintas modul
-// selalu diterima dari luar supaya perakitannya terlihat di satu tempat.
-func NewModule(db *gorm.DB, users UserFinder) *Module {
+// users dan schedule di-inject, bukan dikonstruksi di sini: ketergantungan
+// lintas modul dan kebijakan yang berasal dari konfigurasi selalu diterima dari
+// luar supaya perakitannya terlihat di satu tempat.
+func NewModule(db *gorm.DB, users UserFinder, schedule SchedulePolicy) *Module {
 	repository := NewRepository(db)
-	service := NewService(repository, users)
+	service := NewService(repository, users, schedule)
 
 	return &Module{
 		Repository: repository,

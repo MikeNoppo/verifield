@@ -24,9 +24,30 @@ type AppConfig struct {
 	Name  string
 	Env   string
 	Debug bool
+
+	// TimeZone adalah zona waktu operasi lapangan (asumsi A-04: satu zona).
+	// Dipakai aturan jam kerja pada penjadwalan, bukan untuk penyimpanan —
+	// seluruh waktu tetap disimpan dalam UTC.
+	TimeZone string
 }
 
 func (a AppConfig) IsProduction() bool { return a.Env == "production" }
+
+// Location memuat zona waktu operasi.
+//
+// WARNING: image runtime wajib memuat tzdata. Alpine tanpa paket itu membuat
+// LoadLocation gagal untuk zona apa pun selain UTC, dan aturan jam kerja akan
+// dihitung terhadap zona yang keliru.
+func (a AppConfig) Location() (*time.Location, error) {
+	if a.TimeZone == "" {
+		return time.UTC, nil
+	}
+	loc, err := time.LoadLocation(a.TimeZone)
+	if err != nil {
+		return nil, fmt.Errorf("APP_TIMEZONE %q tidak dikenali: %w", a.TimeZone, err)
+	}
+	return loc, nil
+}
 
 type HTTPConfig struct {
 	Host            string
@@ -90,9 +111,10 @@ func Load() (*Config, error) {
 
 	cfg := &Config{
 		App: AppConfig{
-			Name:  v.GetString("APP_NAME"),
-			Env:   v.GetString("APP_ENV"),
-			Debug: v.GetBool("APP_DEBUG"),
+			Name:     v.GetString("APP_NAME"),
+			Env:      v.GetString("APP_ENV"),
+			Debug:    v.GetBool("APP_DEBUG"),
+			TimeZone: v.GetString("APP_TIMEZONE"),
 		},
 		HTTP: HTTPConfig{
 			Host:            v.GetString("HTTP_HOST"),
@@ -132,6 +154,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("APP_NAME", "verifield-be")
 	v.SetDefault("APP_ENV", "development")
 	v.SetDefault("APP_DEBUG", true)
+	v.SetDefault("APP_TIMEZONE", "Asia/Jakarta")
 
 	v.SetDefault("HTTP_HOST", "0.0.0.0")
 	v.SetDefault("HTTP_PORT", 8080)
@@ -163,6 +186,9 @@ func (c *Config) validate() error {
 	}
 	if c.HTTP.Port <= 0 || c.HTTP.Port > 65535 {
 		return fmt.Errorf("HTTP_PORT tidak valid: %d", c.HTTP.Port)
+	}
+	if _, err := c.App.Location(); err != nil {
+		return err
 	}
 	return nil
 }

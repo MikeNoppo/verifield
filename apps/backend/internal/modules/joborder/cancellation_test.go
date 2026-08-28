@@ -158,7 +158,7 @@ func siapkan(t *testing.T, status schema.JobStatus) *panggung {
 
 	return &panggung{
 		repo:        repo,
-		svc:         joborder.NewService(repo, nil),
+		svc:         joborder.NewService(repo, nil, joborder.DefaultSchedulePolicy(time.UTC)),
 		order:       order,
 		request:     request,
 		inspektor:   joborder.Actor{ID: inspekturID, Role: schema.RoleInspector},
