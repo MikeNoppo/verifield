@@ -17,6 +17,8 @@ import (
 	"verifield-be/internal/common/database"
 	"verifield-be/internal/common/middleware"
 	"verifield-be/internal/common/validation"
+	"verifield-be/internal/modules/joborder"
+	"verifield-be/internal/modules/reference"
 	"verifield-be/internal/modules/user"
 )
 
@@ -27,7 +29,13 @@ type Application struct {
 	db     *gorm.DB
 	engine *gin.Engine
 
-	user *user.Module
+	user      *user.Module
+	joborder  *joborder.Module
+	reference *reference.Module
+
+	// requireActor menggantikan guard autentikasi selama autentikasi berada di
+	// luar cakupan PoC.
+	requireActor gin.HandlerFunc
 }
 
 // New merakit aplikasi: koneksi database, provider tiap modul, middleware
@@ -50,6 +58,8 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 
 	// --- Perakitan modul (padanan daftar `imports` di AppModule) ---
 	userModule := user.NewModule(db)
+	joborderModule := joborder.NewModule(db, userModule.Service)
+	referenceModule := reference.NewModule(db)
 
 	engine := gin.New()
 
@@ -64,11 +74,14 @@ func New(cfg *config.Config, log *slog.Logger) (*Application, error) {
 	)
 
 	app := &Application{
-		cfg:    cfg,
-		log:    log,
-		db:     db,
-		engine: engine,
-		user:   userModule,
+		cfg:          cfg,
+		log:          log,
+		db:           db,
+		engine:       engine,
+		user:         userModule,
+		joborder:     joborderModule,
+		reference:    referenceModule,
+		requireActor: middleware.RequireActor(userModule.Service),
 	}
 
 	app.registerRoutes()

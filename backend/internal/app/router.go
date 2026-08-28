@@ -23,6 +23,8 @@ func (a *Application) registerRoutes() {
 	api.GET("/health", healthHandler)
 
 	a.user.RegisterRoutes(api)
+	a.reference.RegisterRoutes(api)
+	a.joborder.RegisterRoutes(api, a.requireActor)
 
 	// Dokumentasi API tidak diekspos di production.
 	if !a.cfg.App.IsProduction() {
