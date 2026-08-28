@@ -105,13 +105,13 @@ func (r *gormRepository) Inspectors(ctx context.Context) ([]InspectorResponse, e
 	return out, nil
 }
 
-// DemoActors mengembalikan satu pengguna per peran.
+// DemoActors mengembalikan seluruh pengguna aktif yang bisa dipakai sebagai
+// identitas demo, dikelompokkan menurut peran.
 //
-// Pemilihannya deterministik, tetapi tidak sekadar mengambil yang pertama:
-// aktor demo yang layarnya kosong tidak ada gunanya bagi orang yang baru
-// membuka sistem ini. Inspektor diurutkan berdasarkan jumlah penugasan
-// berjalan, sehingga layar lapangan langsung berisi pekerjaan; klien tanpa
-// perusahaan dilewati karena ia tidak bisa melihat order apa pun (asumsi A-03).
+// Urutan inspektor sengaja bukan alfabetis: inspektor tersibuk ditaruh paling
+// depan supaya layar lapangan yang dipilih baku langsung berisi pekerjaan.
+// Klien tanpa perusahaan dilewati karena ia tidak bisa melihat order apa pun
+// (asumsi A-03).
 func (r *gormRepository) DemoActors(ctx context.Context) ([]DemoActorResponse, error) {
 	sibuk, err := r.busiestInspector(ctx)
 	if err != nil {
@@ -128,40 +128,54 @@ func (r *gormRepository) DemoActors(ctx context.Context) ([]DemoActorResponse, e
 		return nil, err
 	}
 
-	seen := make(map[schema.Role]bool, 4)
-	out := make([]DemoActorResponse, 0, 4)
-
+	// Urutan peran mengikuti kemunculannya di hasil query, bukan daftar tetap:
+	// peran baru pada skema ikut terbawa tanpa perlu diingat di sini.
+	byRole := make(map[schema.Role][]DemoActorResponse, 4)
+	urutan := make([]schema.Role, 0, 4)
 	for i := range users {
 		u := users[i]
-		if seen[u.Role] {
-			continue
-		}
 		if u.Role == schema.RoleClient && u.CompanyID == nil {
 			continue
 		}
-		if u.Role == schema.RoleInspector && sibuk != "" && u.ID.String() != sibuk {
-			continue
+		if _, sudah := byRole[u.Role]; !sudah {
+			urutan = append(urutan, u.Role)
 		}
-		seen[u.Role] = true
-
-		actor := DemoActorResponse{
-			ID:    u.ID.String(),
-			Name:  u.Name,
-			Email: u.Email,
-			Role:  string(u.Role),
-		}
-		if u.CompanyID != nil {
-			id := u.CompanyID.String()
-			actor.CompanyID = &id
-		}
-		if u.Company != nil {
-			name := u.Company.Name
-			actor.CompanyName = &name
-		}
-		out = append(out, actor)
+		byRole[u.Role] = append(byRole[u.Role], toActorResponse(u))
 	}
 
+	if sibuk != "" {
+		for i := range byRole[schema.RoleInspector] {
+			if byRole[schema.RoleInspector][i].ID == sibuk {
+				ins := byRole[schema.RoleInspector]
+				ins[0], ins[i] = ins[i], ins[0]
+				break
+			}
+		}
+	}
+
+	out := make([]DemoActorResponse, 0, len(users))
+	for _, role := range urutan {
+		out = append(out, byRole[role]...)
+	}
 	return out, nil
+}
+
+func toActorResponse(u schema.User) DemoActorResponse {
+	actor := DemoActorResponse{
+		ID:    u.ID.String(),
+		Name:  u.Name,
+		Email: u.Email,
+		Role:  string(u.Role),
+	}
+	if u.CompanyID != nil {
+		id := u.CompanyID.String()
+		actor.CompanyID = &id
+	}
+	if u.Company != nil {
+		name := u.Company.Name
+		actor.CompanyName = &name
+	}
+	return actor
 }
 
 // busiestInspector mengembalikan id inspektor dengan penugasan berjalan
