@@ -47,6 +47,32 @@ Sisi klien dibagi dua: Server Component mengambil potret awal supaya layar
 pertama langsung terisi, lalu store di browser mengambil alih dan menerapkan
 perubahan yang masuk lewat stream.
 
+### Kontrak antar kedua sisi
+
+Bentuk kawat tidak ditulis dua kali. Tipe TypeScript yang dipakai frontend
+di-generate dari anotasi pada handler Go:
+
+```
+anotasi Go → swag → swagger.json → swagger2openapi → openapi.json
+                                  → openapi-typescript → packages/contract
+```
+
+Termasuk nilai berbatasnya: `Status` dan `Role` di frontend berasal dari tag
+`enums:` pada struct Go, bukan dari daftar yang disalin. Menambah satu status di
+backend karena itu langsung membuat setiap `switch` di frontend yang belum
+menanganinya gagal dikompilasi.
+
+**Yang menjadikannya jaminan, bukan sekadar kenyamanan,** adalah
+`bun run contract:check` di CI: ia meng-generate ulang lalu menolak bila hasilnya
+berbeda dari yang ter-commit. Tanpa langkah itu, tipe hasil generate hanya
+menyalin keadaan pada suatu saat — persis seperti DTO tulisan tangan yang ia
+gantikan.
+
+*Harga yang dibayar:* swag menghasilkan Swagger 2.0, yang tidak mengenal field
+wajib pada response, sehingga seluruhnya keluar sebagai opsional. Penandaan mana
+yang benar-benar selalu ada ditulis tangan di `packages/contract/src/index.ts` —
+satu berkas kecil, dan satu-satunya bagian kontrak yang tidak di-generate.
+
 ---
 
 ## 2. Data Model
@@ -120,7 +146,7 @@ mekanisme tambahan.
 
 - **HTTP/1.1 membatasi enam koneksi per origin.** Klien yang membuka beberapa tab
   bisa menghabiskannya sampai permintaan biasa ikut tertahan. Ditangani dengan
-  satu stream per layar (penghitung acuan di `lib/live/store.ts`), bukan satu per
+  satu stream per layar (penghitung acuan di `apps/frontend/lib/live/store.ts`), bukan satu per
   komponen. Di HTTP/2 batas ini hilang karena koneksinya multiplexed.
 - **EventSource tidak bisa memasang header.** Identitas karena itu dikirim lewat
   query. Pada sistem sungguhan hal ini ditangani cookie sesi — yang justru
@@ -172,7 +198,7 @@ perilaku manusia yang dapat diperkirakan.
 Perangkat membuat `client_event_id` **sebelum kiriman pertama** dan memakainya
 kembali untuk setiap pengiriman ulang. Ditegakkan berlapis:
 
-1. Antrean di perangkat menolak penanda yang sudah ada (`lib/offline/queue.ts`).
+1. Antrean di perangkat menolak penanda yang sudah ada (`apps/frontend/lib/offline/queue.ts`).
 2. Service memeriksa penanda di dalam transaksi yang sudah memegang
    `SELECT … FOR UPDATE` atas ordernya. Kunci itu yang membuat pemeriksaan
    bebas balapan: seluruh penulisan event untuk satu order berjalan berurutan.
@@ -279,7 +305,7 @@ pod memegang satu koneksi database tersendiri untuk `LISTEN` (koneksi yang sedan
 `LISTEN` memegang sesinya sepanjang waktu, jadi tidak boleh dipinjam dari pool).
 Pada puluhan pod itu masih wajar; pada ratusan, Redis pub/sub atau NATS menjadi
 pilihan yang lebih tepat. Perpindahannya menyentuh satu berkas —
-`internal/modules/realtime/listener.go`.
+`apps/backend/internal/modules/realtime/listener.go`.
 
 **Subscriber lambat di-*drop*, bukan ditunggu.** Menunggu berarti satu klien
 lambat bisa menghentikan penyiaran ke semua klien lain, dan pada akhirnya menahan

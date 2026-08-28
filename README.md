@@ -8,11 +8,16 @@ bersinyal buruk.
 PoC untuk **Case Study 1 — Real-Time Order & Job Tracking**.
 
 ```
-frontend/   Next.js 16 · React 19 · Tailwind v4
-backend/    Go 1.26 · Gin · GORM · PostgreSQL
-docs/       dokumen bisnis dan desain teknis
-deploy/     manifest Kubernetes dan skrip init database
+apps/frontend/      Next.js 16 · React 19 · Tailwind v4
+apps/backend/       Go 1.26 · Gin · GORM · PostgreSQL
+packages/contract/  tipe API ter-generate dari anotasi Go
+docs/               dokumen bisnis dan desain teknis
+deploy/             manifest Kubernetes dan skrip init database
 ```
+
+Workspace Bun, sehingga seluruh perintah dijalankan dari akar repo. Backend Go
+ikut sebagai anggota workspace lewat `package.json` tipis yang membungkus
+perintah `go` — satu cara memanggil untuk kedua sisi.
 
 ## Dokumen
 
@@ -29,7 +34,7 @@ pentingnya, dan sebagian besar keputusan di kode merujuk balik ke sana.
 ### Satu perintah
 
 ```bash
-docker compose up --build
+bun install && bun run stack:up
 ```
 
 Lalu buka <http://localhost:3000>. Migrasi dan data contoh berjalan otomatis
@@ -40,29 +45,43 @@ sebelum aplikasi menyala.
 > sehingga engine Linux Docker Desktop tidak bisa menyala. Seluruh pengembangan
 > dan verifikasi dilakukan lewat jalur manual di bawah, dengan PostgreSQL native.
 
-### Manual
+### Pengembangan dengan hot reload
 
-Butuh Go 1.26, Bun 1.4, dan PostgreSQL 17+ yang berjalan.
+Database di Docker, kedua aplikasi langsung di mesin. Semua dari akar repo.
 
 ```bash
-# 1. Database
-createdb verifield && createdb verifield_dev
-
-# 2. Backend
-cd backend
-cp .env.example .env          # sesuaikan DB_*, isi SEED_ADMIN_PASSWORD
-go run ./cmd/migrate up       # membuat tabel
-go run ./cmd/seeder           # mengisi data contoh
-go run ./cmd/api              # http://localhost:8080
-
-# 3. Frontend (terminal terpisah)
-cd frontend
 bun install
-bun run dev                   # http://localhost:3000
+cp apps/backend/.env.example apps/backend/.env   # isi SEED_ADMIN_PASSWORD
+
+bun run db:up        # Postgres saja
+bun run migrate      # membuat tabel
+bun run seed         # mengisi data contoh
+bun run dev          # frontend :3000 dan backend :8080 sekaligus
 ```
+
+Tanpa Docker sama sekali, cukup ganti `bun run db:up` dengan PostgreSQL yang
+sudah terpasang, lalu `createdb verifield && createdb verifield_dev`.
+
+Perintah lain: `bun run dev:api`, `bun run dev:web`, `bun run db:reset`,
+`bun run stack:logs`.
 
 `verifield_dev` hanya dibutuhkan bila Anda akan meng-generate migrasi baru; ia
 dipakai Atlas untuk menghitung diff dan harus kosong.
+
+### Kontrak API
+
+`packages/contract` berisi tipe TypeScript yang **di-generate**, bukan ditulis
+tangan:
+
+```
+anotasi Go → swag → swagger.json → swagger2openapi → openapi.json
+                                  → openapi-typescript → schema.ts
+```
+
+Frontend memakai tipe itu untuk seluruh bentuk kawat, termasuk `Status` dan
+`Role`. Menambah satu status di backend langsung membuat setiap `switch` di
+frontend yang belum menanganinya gagal dikompilasi. `bun run contract:check`
+menangkap kontrak yang tertinggal, dan berjalan di CI.
 
 ## Mencobanya
 
@@ -107,8 +126,8 @@ yang diisi dari `GET /demo/actors`.
 | GET | `/stream?last_event_id=` | **SSE** — perubahan order, disaring menurut peran |
 | GET · POST | `/users`, `/users/{id}` | CRUD user |
 
-Dokumentasi interaktif: `swag init -g cmd/api/main.go -o docs --parseDependency
---parseInternal`, lalu <http://localhost:8080/swagger/index.html>.
+Dokumentasi interaktif: `bun run swagger`, lalu
+<http://localhost:8080/swagger/index.html>.
 
 Seluruh response memakai envelope yang sama:
 
@@ -172,9 +191,16 @@ penting:
 
 ## Pemeriksaan
 
+Seluruhnya dari akar repo:
+
 ```bash
-cd backend  && go vet ./... && gofmt -l . && go test ./...
-cd frontend && bun run lint && bun run typecheck && bun test
+bun run lint && bun run typecheck && bun run test
+```
+
+Untuk memastikan kontrak API belum tertinggal dari anotasi Go:
+
+```bash
+bun run swagger && bun run contract:check
 ```
 
 ## Catatan
