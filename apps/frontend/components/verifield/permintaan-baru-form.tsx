@@ -29,6 +29,12 @@ import type { InspectionType, JobOrder } from "@/lib/domain/types"
     hanya menambah satu isian yang jawabannya tidak ia miliki. */
 const DURASI_JAM = 6
 
+/** Nilai datetime-local memakai waktu setempat, bukan ISO. */
+function inputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
   const actor = useActor()
   const router = useRouter()
@@ -37,6 +43,13 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
   const [kirim, setKirim] = React.useState(false)
   const [hasil, setHasil] = React.useState<JobOrder | null>(null)
   const [galat, setGalat] = React.useState<string | null>(null)
+  // Batas bawah jadwal dihitung sekali saat komponen hidup di browser. Saat
+  // SSR nilainya kosong, dan selisih atribut min itu disembunyikan lewat
+  // suppressHydrationWarning — menghitungnya di server hanya menghasilkan nilai
+  // yang basi beberapa detik dan tetap bisa berselisih satu menit.
+  const [minJadwal] = React.useState(() =>
+    typeof window === "undefined" ? "" : inputValue(new Date()),
+  )
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -161,7 +174,14 @@ export function PermintaanBaruForm({ types }: { types: InspectionType[] }) {
 
             <Field>
               <FieldLabel htmlFor="jadwal">Jadwal yang diminta</FieldLabel>
-              <Input id="jadwal" name="jadwal" type="datetime-local" required />
+              <Input
+                id="jadwal"
+                name="jadwal"
+                type="datetime-local"
+                min={minJadwal || undefined}
+                suppressHydrationWarning
+                required
+              />
               <FieldDescription>
                 Jadwal dapat bergeser mengikuti kesiapan pihak ketiga di lokasi.
               </FieldDescription>
