@@ -327,3 +327,25 @@ func TestPembatalanLangsungKoordinatorMemenuhiPermintaanKlien(t *testing.T) {
 		t.Errorf("tidak perlu ada tanda bagi koordinator, dapat %d", len(p.repo.alerts))
 	}
 }
+
+// Penolakan pembatalan punya dua sebab yang berbeda, dan keduanya harus dapat
+// dibedakan tanpa membaca kalimatnya: wewenang yang tidak pernah ada menjawab
+// 403, sedangkan keadaan yang kebetulan tidak mengizinkan menjawab 409. Klien
+// yang menerima 403 menyembunyikan tombolnya; yang menerima 409 memuat ulang.
+func TestPenolakanPembatalanMembedakanWewenangDariKeadaan(t *testing.T) {
+	p := siapkan(t, schema.StatusOnSite)
+
+	_, err := p.svc.Cancel(context.Background(), p.inspektor, p.order.ID.String(),
+		dto.CancelJobOrderDTO{Reason: "Lokasinya terlalu jauh"})
+	if got := statusHTTP(t, err); got != http.StatusForbidden {
+		t.Errorf("inspektor membatalkan: status = %d, ingin %d", got, http.StatusForbidden)
+	}
+
+	p.order.CurrentStatus = schema.StatusCompleted
+
+	_, err = p.svc.Cancel(context.Background(), p.koordinator, p.order.ID.String(),
+		dto.CancelJobOrderDTO{Reason: "Diminta klien lewat telepon"})
+	if got := statusHTTP(t, err); got != http.StatusConflict {
+		t.Errorf("koordinator membatalkan order final: status = %d, ingin %d", got, http.StatusConflict)
+	}
+}

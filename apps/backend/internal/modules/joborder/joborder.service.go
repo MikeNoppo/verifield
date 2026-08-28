@@ -493,7 +493,15 @@ func (s *service) Cancel(ctx context.Context, actor Actor, id string, input dto.
 		decision := EvaluateCancel(actor.Role, order.CurrentStatus)
 		outcome, fee, message = decision.Outcome, decision.Fee, decision.Message
 
-		if decision.Outcome == CancelForbidden {
+		// Dua penolakan yang berbeda menuntut dua status yang berbeda: 403
+		// berarti "jangan tawarkan aksi ini kepada peran tersebut", 409 berarti
+		// "keadaannya sudah berubah, muat ulang lalu nilai kembali". Klien yang
+		// hanya menerima satu kode tidak bisa membedakan keduanya tanpa
+		// membaca kalimatnya, dan kalimat bukan kontrak.
+		switch decision.Outcome {
+		case CancelForbidden:
+			return apperror.Forbidden(decision.Message)
+		case CancelUnavailable:
 			return apperror.Conflict(decision.Message)
 		}
 

@@ -118,8 +118,14 @@ const (
 	// CancelNeedsApproval berarti permintaan disimpan menunggu keputusan
 	// koordinator, dan pekerjaan tetap berjalan (keputusan B-05).
 	CancelNeedsApproval
-	// CancelForbidden berarti pembatalan tidak diizinkan pada kondisi ini.
+	// CancelForbidden berarti peran ini tidak pernah berwenang membatalkan,
+	// pada status apa pun. Jawabannya tetap, sehingga antarmuka boleh
+	// menyembunyikan tombolnya sekali saja alih-alih menebak per order.
 	CancelForbidden
+	// CancelUnavailable berarti wewenangnya ada, tetapi keadaan order sekarang
+	// tidak mengizinkannya. Berbeda dari CancelForbidden: keadaan bisa berubah,
+	// wewenang tidak.
+	CancelUnavailable
 )
 
 // CancelFee adalah konsekuensi komersial pembatalan pada tahap tertentu.
@@ -143,14 +149,13 @@ type CancelDecision struct {
 
 // EvaluateCancel membaca matriks kewenangan pembatalan untuk satu kombinasi
 // peran dan status.
+//
+// Wewenang diperiksa LEBIH DULU daripada keadaan, dan urutannya disengaja.
+// Inspektor yang mencoba membatalkan order yang sudah selesai harus mendengar
+// alasan yang sama seperti pada order yang masih berjalan — "Anda tidak
+// berwenang" — bukan "ordernya sudah selesai", yang seolah menjanjikan bahwa
+// pada order lain ia akan berhasil.
 func EvaluateCancel(role schema.Role, status schema.JobStatus) CancelDecision {
-	if status.IsFinal() {
-		return CancelDecision{
-			Outcome: CancelForbidden,
-			Message: "Order ini sudah " + StatusLabel(status) + " dan tidak dapat diubah lagi.",
-		}
-	}
-
 	switch role {
 	case schema.RoleInspector:
 		// Keputusan B-04: memisahkan wewenang membatalkan dari pelaksana
@@ -165,20 +170,27 @@ func EvaluateCancel(role schema.Role, status schema.JobStatus) CancelDecision {
 			Outcome: CancelForbidden,
 			Message: "Customer Service hanya memiliki akses baca. Teruskan permintaan ini kepada koordinator.",
 		}
-	case schema.RoleClient:
-		if status == schema.StatusInProgress {
-			return CancelDecision{
-				Outcome: CancelNeedsApproval,
-				Fee:     FeeCoordinator,
-				Message: "Pekerjaan sudah dimulai di lokasi. Permintaan pembatalan Anda akan kami teruskan ke koordinator untuk ditinjau.",
-			}
-		}
-	case schema.RoleAdmin:
-		// Koordinator boleh membatalkan pada tahap mana pun sebelum final.
+	case schema.RoleClient, schema.RoleAdmin:
+		// Keduanya berwenang; sisanya ditentukan keadaan order.
 	default:
 		return CancelDecision{
 			Outcome: CancelForbidden,
 			Message: "Peran ini tidak berwenang membatalkan order.",
+		}
+	}
+
+	if status.IsFinal() {
+		return CancelDecision{
+			Outcome: CancelUnavailable,
+			Message: "Order ini sudah " + StatusLabel(status) + " dan tidak dapat diubah lagi.",
+		}
+	}
+
+	if role == schema.RoleClient && status == schema.StatusInProgress {
+		return CancelDecision{
+			Outcome: CancelNeedsApproval,
+			Fee:     FeeCoordinator,
+			Message: "Pekerjaan sudah dimulai di lokasi. Permintaan pembatalan Anda akan kami teruskan ke koordinator untuk ditinjau.",
 		}
 	}
 

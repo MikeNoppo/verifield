@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveEvents, useLiveOrder } from "@/lib/live/hooks"
-import { cancelAuthority, isStale, needsAssignment } from "@/lib/domain/status"
+import { cancelAuthority, cancelOffered, isStale, needsAssignment } from "@/lib/domain/status"
 import type { Inspector, JobOrder, OpenAlertType } from "@/lib/domain/types"
 import { sejak, tanggalLengkap } from "@/lib/format"
 
@@ -89,7 +89,7 @@ export function OpsOrderDetail({
             <AssignDialog order={order} inspectors={inspectors} />
           ) : null}
           <CorrectionDialog order={order} />
-          {auth.kind === "allowed" ? <CancelDialog role="admin" order={order} /> : null}
+          {cancelOffered(auth) ? <CancelDialog role="admin" order={order} /> : null}
         </div>
       </div>
 

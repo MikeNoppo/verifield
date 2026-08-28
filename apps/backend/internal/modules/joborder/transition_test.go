@@ -158,8 +158,11 @@ func TestMatriksKewenanganPembatalan(t *testing.T) {
 		{"koordinator membatalkan saat pekerjaan berjalan", schema.RoleAdmin, schema.StatusInProgress, joborder.CancelImmediate, joborder.FeeCoordinator},
 		{"inspektor tidak pernah boleh membatalkan", schema.RoleInspector, schema.StatusOnSite, joborder.CancelForbidden, ""},
 		{"cs hanya membaca", schema.RoleCS, schema.StatusRequested, joborder.CancelForbidden, ""},
-		{"order selesai tidak bisa dibatalkan", schema.RoleAdmin, schema.StatusCompleted, joborder.CancelForbidden, ""},
-		{"order sudah dibatalkan tidak bisa dibatalkan lagi", schema.RoleClient, schema.StatusCancelled, joborder.CancelForbidden, ""},
+		// Wewenang menang atas keadaan: peran yang tidak pernah berwenang
+		// mendapat jawaban yang sama pada status apa pun, termasuk yang final.
+		{"inspektor tetap tidak berwenang pada order final", schema.RoleInspector, schema.StatusCompleted, joborder.CancelForbidden, ""},
+		{"order selesai tidak bisa dibatalkan", schema.RoleAdmin, schema.StatusCompleted, joborder.CancelUnavailable, ""},
+		{"order sudah dibatalkan tidak bisa dibatalkan lagi", schema.RoleClient, schema.StatusCancelled, joborder.CancelUnavailable, ""},
 	}
 
 	for _, c := range cases {

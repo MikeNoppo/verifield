@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useActorHref } from "@/lib/actor/hooks"
 import { useLiveEvents, useLiveOrder } from "@/lib/live/hooks"
-import { cancelAuthority } from "@/lib/domain/status"
+import { cancelAuthority, cancelOffered } from "@/lib/domain/status"
 import type { JobOrder } from "@/lib/domain/types"
 import { tanggalLengkap } from "@/lib/format"
 
@@ -60,7 +60,7 @@ export function KlienOrderDetail({ order: initial }: { order: JobOrder }) {
             <span className="rounded-4xl border border-attention/30 bg-attention/10 px-3 py-1 text-xs font-medium text-attention">
               Permintaan pembatalan sedang ditinjau
             </span>
-          ) : auth.kind !== "forbidden" ? (
+          ) : cancelOffered(auth) ? (
             <CancelDialog role="client" order={order} />
           ) : null}
         </div>

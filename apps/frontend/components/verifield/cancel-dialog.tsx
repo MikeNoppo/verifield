@@ -20,7 +20,7 @@ import { useActor } from "@/components/verifield/actor-provider"
 import { ApiError } from "@/lib/api/client"
 import { cancelOrder, type CancelResult } from "@/lib/api/orders"
 import { useApplyResult } from "@/lib/live/hooks"
-import { cancelAuthority } from "@/lib/domain/status"
+import { cancelAuthority, cancelOffered } from "@/lib/domain/status"
 import type { JobOrder, Role } from "@/lib/domain/types"
 
 /** Kewenangan dibaca dari matriks di lib/domain/status.ts, tidak ditebak di sini.
@@ -72,7 +72,7 @@ export function CancelDialog({ role, order }: { role: Role; order: JobOrder }) {
   return (
     <Dialog open={open} onOpenChange={tutup}>
       <DialogTrigger
-        render={<Button variant="destructive" size="sm" disabled={auth.kind === "forbidden"} />}
+        render={<Button variant="destructive" size="sm" disabled={!cancelOffered(auth)} />}
       >
         {auth.kind === "requires_approval" ? "Ajukan Pembatalan" : "Batalkan Order"}
       </DialogTrigger>
@@ -147,7 +147,7 @@ export function CancelDialog({ role, order }: { role: Role; order: JobOrder }) {
               <Button
                 variant="destructive"
                 onClick={kirimkan}
-                disabled={kirim || alasan.trim().length < 3 || auth.kind === "forbidden"}
+                disabled={kirim || alasan.trim().length < 3 || !cancelOffered(auth)}
               >
                 {kirim ? <Spinner /> : null}
                 {auth.kind === "requires_approval" ? "Kirim Permintaan" : "Ya, Batalkan"}

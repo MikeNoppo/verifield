@@ -76,7 +76,19 @@ export type CancelFee = "none" | "travel" | "visit" | "coordinator"
 export type CancelAuthority =
   | { kind: "allowed"; fee: CancelFee; consequence: string }
   | { kind: "requires_approval"; message: string }
+  /** Peran ini tidak pernah berwenang membatalkan, pada status apa pun. Server
+      menjawabnya 403, dan tombolnya cukup disembunyikan sekali. */
   | { kind: "forbidden"; message: string }
+  /** Wewenangnya ada, tetapi keadaan order sekarang tidak mengizinkan. Server
+      menjawabnya 409, dan keadaan itu bisa berubah kapan saja. */
+  | { kind: "unavailable"; message: string }
+
+/** Apakah aksi pembatalan layak ditawarkan sama sekali. Dipisahkan dari
+    pemeriksaan `kind` di tiap layar supaya penambahan alasan penolakan
+    berikutnya tidak menghidupkan kembali tombol yang seharusnya mati. */
+export function cancelOffered(auth: CancelAuthority): boolean {
+  return auth.kind === "allowed" || auth.kind === "requires_approval"
+}
 
 const FEE_TEXT: Record<CancelFee, string> = {
   none: "Tidak ada biaya pada tahap ini.",
@@ -87,20 +99,33 @@ const FEE_TEXT: Record<CancelFee, string> = {
 
 /** Matriks kewenangan pembatalan. Bukan boolean: tahap In Progress menghasilkan
     permintaan yang menunggu keputusan koordinator, bukan pembatalan langsung
-    (B-05), dan setiap penolakan membawa kalimatnya sendiri (F-05). */
+    (B-05), dan setiap penolakan membawa kalimatnya sendiri (F-05).
+ *
+ *  Urutannya sama persis dengan EvaluateCancel di backend — wewenang lebih dulu,
+ *  baru keadaan. Padanan ini hanya kenyamanan tampilan; yang mengikat tetap
+ *  server, dan menyimpangkan urutannya membuat layar menjanjikan hal yang akan
+ *  ditolak server. */
 export function cancelAuthority(role: Role, status: Status): CancelAuthority {
-  if (isTerminal(status)) {
-    return {
-      kind: "forbidden",
-      message: `Order ini sudah ${STATUS_LABEL[status].toLowerCase()} dan tidak dapat diubah lagi.`,
-    }
-  }
-
   if (role === "inspector") {
     return {
       kind: "forbidden",
       message:
         "Inspektor tidak berwenang membatalkan order. Bila pekerjaan tidak dapat dilaksanakan, laporkan sebagai kendala beserta alasannya.",
+    }
+  }
+
+  if (role === "cs") {
+    return {
+      kind: "forbidden",
+      message:
+        "Customer Service hanya memiliki akses baca. Teruskan permintaan ini kepada koordinator.",
+    }
+  }
+
+  if (isTerminal(status)) {
+    return {
+      kind: "unavailable",
+      message: `Order ini sudah ${STATUS_LABEL[status].toLowerCase()} dan tidak dapat diubah lagi.`,
     }
   }
 
